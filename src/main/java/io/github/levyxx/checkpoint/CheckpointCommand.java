@@ -48,6 +48,7 @@ public class CheckpointCommand implements TabExecutor {
 
         switch (subCommand) {
             case "set" -> handleSet(player, playerId, name);
+            case "update" -> handleUpdate(player, playerId, name);
             case "delete" -> handleDelete(player, playerId, name);
             default -> sendUsage(sender, label);
         }
@@ -87,6 +88,39 @@ public class CheckpointCommand implements TabExecutor {
         }
     }
 
+    private void handleUpdate(Player player, UUID playerId, String name) {
+        Location location = player.getLocation();
+        World world = location.getWorld();
+        if (world == null) {
+            player.sendMessage(ChatColor.RED + "ワールド情報が取得できませんでした。");
+            return;
+        }
+
+        Checkpoint checkpoint = new Checkpoint(
+            world.getName(),
+            location.getX(),
+            location.getY(),
+            location.getZ(),
+            location.getYaw(),
+            location.getPitch()
+        );
+
+        boolean updated;
+        try {
+            updated = checkpointManager.updateNamedCheckpoint(playerId, name, checkpoint);
+        } catch (IllegalArgumentException ex) {
+            player.sendMessage(ChatColor.RED + ex.getMessage());
+            return;
+        }
+
+        if (updated) {
+            player.sendMessage(ChatColor.GREEN + "チェックポイント『" + name + "』を更新しました。");
+            plugin.notifyNamedCheckpointSet(player, name);
+        } else {
+            player.sendMessage(ChatColor.RED + "チェックポイント『" + name + "』は存在しません。");
+        }
+    }
+
     private void handleDelete(Player player, UUID playerId, String name) {
         boolean removed;
         try {
@@ -105,7 +139,7 @@ public class CheckpointCommand implements TabExecutor {
     }
 
     private void sendUsage(CommandSender sender, String label) {
-        sender.sendMessage(ChatColor.YELLOW + "使い方: /" + label + " set <名前> または /" + label + " delete <名前>");
+        sender.sendMessage(ChatColor.YELLOW + "使い方: /" + label + " set <名前>・/" + label + " update <名前>・/" + label + " delete <名前>");
     }
 
     @Override
@@ -115,12 +149,12 @@ public class CheckpointCommand implements TabExecutor {
         }
 
         if (args.length == 1) {
-            return List.of("set", "delete").stream()
+            return List.of("set", "update", "delete").stream()
                 .filter(opt -> opt.startsWith(args[0].toLowerCase(Locale.ROOT)))
                 .collect(Collectors.toList());
         }
 
-        if (args.length >= 2 && "delete".equalsIgnoreCase(args[0])) {
+        if (args.length >= 2 && ("delete".equalsIgnoreCase(args[0]) || "update".equalsIgnoreCase(args[0]))) {
             List<String> names = new ArrayList<>(checkpointManager.getNamedCheckpointNames(player.getUniqueId()));
             String entered = args[1].toLowerCase(Locale.ROOT);
             return names.stream()

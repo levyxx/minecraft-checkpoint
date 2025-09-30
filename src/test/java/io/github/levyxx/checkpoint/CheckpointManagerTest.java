@@ -59,6 +59,35 @@ class CheckpointManagerTest {
     }
 
     @Test
+    @DisplayName("既存の名前付きチェックポイントを更新できる")
+    void shouldUpdateExistingNamedCheckpoint() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID playerId = UUID.randomUUID();
+        Checkpoint original = new Checkpoint("world", 0.0, 64.0, 0.0, 0.0f, 0.0f);
+        Checkpoint updated = new Checkpoint("world_nether", 10.0, 70.5, -5.0, 45.0f, 15.0f);
+        manager.addNamedCheckpoint(playerId, "Home", original);
+
+        boolean result = manager.updateNamedCheckpoint(playerId, "home", updated);
+        Optional<Checkpoint> actual = manager.getNamedCheckpoint(playerId, "HOME");
+
+        assertTrue(result, "更新は成功するはず");
+        assertTrue(actual.isPresent(), "更新後もチェックポイントが取得できるはず");
+        assertEquals(updated, actual.get(), "更新した内容が反映されるべき");
+    }
+
+    @Test
+    @DisplayName("存在しない名前付きチェックポイントは更新できない")
+    void shouldRejectUpdateForUnknownCheckpoint() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID playerId = UUID.randomUUID();
+        Checkpoint checkpoint = new Checkpoint("world", 0.0, 64.0, 0.0, 0.0f, 0.0f);
+
+        boolean result = manager.updateNamedCheckpoint(playerId, "Unknown", checkpoint);
+
+        assertFalse(result, "存在しないチェックポイントは更新できないはず");
+    }
+
+    @Test
     @DisplayName("名前付きチェックポイントを選択して取得できる")
     void shouldSelectNamedCheckpoint() {
         CheckpointManager manager = new CheckpointManager();

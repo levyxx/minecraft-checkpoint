@@ -52,6 +52,25 @@ public class CheckpointManager {
         return true;
     }
 
+    public boolean updateNamedCheckpoint(UUID playerId, String rawName, Checkpoint checkpoint) {
+        UUID validatedId = Objects.requireNonNull(playerId, "playerId cannot be null");
+        Checkpoint validatedCheckpoint = Objects.requireNonNull(checkpoint, "checkpoint cannot be null");
+        String name = validateName(rawName);
+
+        Map<String, Checkpoint> playerMap = namedCheckpoints.get(validatedId);
+        if (playerMap == null || playerMap.isEmpty()) {
+            return false;
+        }
+
+        Optional<String> actualKey = findExistingKey(playerMap, name);
+        if (actualKey.isEmpty()) {
+            return false;
+        }
+
+        playerMap.put(actualKey.get(), validatedCheckpoint);
+        return true;
+    }
+
     public boolean removeNamedCheckpoint(UUID playerId, String rawName) {
         if (playerId == null) {
             return false;
