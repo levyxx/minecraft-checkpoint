@@ -1,0 +1,6 @@
+name: CheckpointPlugin
+version: ${project.version}
+main: io.github.levyxx.checkpoint.CheckpointPlugin
+api-version: '1.20'
+author: levyxx
+description: Enables per-player checkpoints using slimeballs and nether stars.
