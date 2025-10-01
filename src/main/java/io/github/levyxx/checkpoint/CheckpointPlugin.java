@@ -10,6 +10,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -110,6 +111,9 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
         } else if (type == Material.HEART_OF_THE_SEA) {
             event.setCancelled(true);
             openCheckpointMenu(player, menuPages.getOrDefault(player.getUniqueId(), 0));
+        } else if (type == Material.FEATHER) {
+            event.setCancelled(true);
+            handleGameModeToggle(player);
         }
     }
 
@@ -147,8 +151,8 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
         );
         checkpointManager.setQuickCheckpoint(player.getUniqueId(), checkpoint);
         markLastSelection(player.getUniqueId(), SelectionType.QUICK, null);
-        player.sendMessage(ChatColor.GREEN + "チェックポイントを保存しました！");
-        player.playSound(location, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.8f, 1.3f);
+    player.sendMessage(ChatColor.GREEN + "チェックポイントを保存しました！");
+    player.playSound(location, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.5f);
     }
 
     private void handleCheckpointTeleport(Player player) {
@@ -375,6 +379,22 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
 
     private void markLastSelection(UUID playerId, SelectionType type, String identifier) {
         lastSelections.put(playerId, new LastSelection(type, identifier));
+    }
+
+    private void handleGameModeToggle(Player player) {
+        GameMode current = player.getGameMode();
+        if (current == GameMode.ADVENTURE) {
+            player.setGameMode(GameMode.CREATIVE);
+            player.sendMessage(ChatColor.GREEN + "ゲームモードをクリエイティブに変更しました。");
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.3f);
+            return;
+        }
+
+        if (current == GameMode.CREATIVE) {
+            player.setGameMode(GameMode.ADVENTURE);
+            player.sendMessage(ChatColor.GREEN + "ゲームモードをアドベンチャーに変更しました。");
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 0.8f);
+        }
     }
 
     private ItemStack createCheckpointPaper(String name, Checkpoint checkpoint, boolean selected) {
