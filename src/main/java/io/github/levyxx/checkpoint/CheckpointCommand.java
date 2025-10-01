@@ -32,27 +32,51 @@ public class CheckpointCommand implements TabExecutor {
             return true;
         }
 
-        if (args.length < 2) {
+        if (args.length == 0) {
             sendUsage(sender, label);
             return true;
         }
 
         String subCommand = args[0].toLowerCase(Locale.ROOT);
-        String name = String.join(" ", Arrays.copyOfRange(args, 1, args.length)).trim();
-        if (name.isEmpty()) {
-            sender.sendMessage(ChatColor.RED + "チェックポイント名を入力してください。");
-            return true;
-        }
-
         UUID playerId = player.getUniqueId();
 
         switch (subCommand) {
-            case "set" -> handleSet(player, playerId, name);
-            case "update" -> handleUpdate(player, playerId, name);
-            case "delete" -> handleDelete(player, playerId, name);
+            case "set" -> {
+                String name = extractName(args);
+                if (name == null) {
+                    sender.sendMessage(ChatColor.RED + "チェックポイント名を入力してください。");
+                    return true;
+                }
+                handleSet(player, playerId, name);
+            }
+            case "update" -> {
+                String name = extractName(args);
+                if (name == null) {
+                    sender.sendMessage(ChatColor.RED + "チェックポイント名を入力してください。");
+                    return true;
+                }
+                handleUpdate(player, playerId, name);
+            }
+            case "delete" -> {
+                String name = extractName(args);
+                if (name == null) {
+                    sender.sendMessage(ChatColor.RED + "チェックポイント名を入力してください。");
+                    return true;
+                }
+                handleDelete(player, playerId, name);
+            }
+            case "items" -> plugin.giveCheckpointItems(player);
             default -> sendUsage(sender, label);
         }
         return true;
+    }
+
+    private String extractName(String[] args) {
+        if (args.length < 2) {
+            return null;
+        }
+        String name = String.join(" ", Arrays.copyOfRange(args, 1, args.length)).trim();
+        return name.isEmpty() ? null : name;
     }
 
     private void handleSet(Player player, UUID playerId, String name) {
@@ -139,7 +163,7 @@ public class CheckpointCommand implements TabExecutor {
     }
 
     private void sendUsage(CommandSender sender, String label) {
-        sender.sendMessage(ChatColor.YELLOW + "使い方: /" + label + " set <名前>・/" + label + " update <名前>・/" + label + " delete <名前>");
+        sender.sendMessage(ChatColor.YELLOW + "使い方: /" + label + " set <名前>・/" + label + " update <名前>・/" + label + " delete <名前>・/" + label + " items");
     }
 
     @Override
@@ -149,7 +173,7 @@ public class CheckpointCommand implements TabExecutor {
         }
 
         if (args.length == 1) {
-            return List.of("set", "update", "delete").stream()
+            return List.of("set", "update", "delete", "items").stream()
                 .filter(opt -> opt.startsWith(args[0].toLowerCase(Locale.ROOT)))
                 .collect(Collectors.toList());
         }

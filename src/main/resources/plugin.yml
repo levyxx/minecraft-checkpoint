@@ -7,4 +7,8 @@ description: Enables per-player checkpoints using slimeballs and nether stars.
 commands:
   cp:
     description: Manage personal named checkpoints.
-    usage: /cp <set|update|delete> <name>
+    usage: |-
+      /cp set <name>
+      /cp update <name>
+      /cp delete <name>
+      /cp items
