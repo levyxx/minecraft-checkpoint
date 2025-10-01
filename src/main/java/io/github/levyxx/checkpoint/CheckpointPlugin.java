@@ -87,9 +87,6 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
         }
 
         Action action = event.getAction();
-        if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) {
-            return;
-        }
 
         ItemStack item = event.getItem();
         if (item == null || item.getType().isAir()) {
@@ -101,6 +98,17 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
 
         Material type = item.getType();
         Player player = event.getPlayer();
+
+        if (type == Material.NETHER_STAR
+            && (action == Action.LEFT_CLICK_AIR || action == Action.LEFT_CLICK_BLOCK)) {
+            event.setCancelled(true);
+            openCheckpointMenu(player, menuPages.getOrDefault(player.getUniqueId(), 0));
+            return;
+        }
+
+        if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
 
         if (type == Material.SLIME_BALL || type == Material.SLIME_BLOCK) {
             event.setCancelled(true);
@@ -151,8 +159,8 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
         );
         checkpointManager.setQuickCheckpoint(player.getUniqueId(), checkpoint);
         markLastSelection(player.getUniqueId(), SelectionType.QUICK, null);
-    player.sendMessage(ChatColor.GREEN + "チェックポイントを保存しました！");
-    player.playSound(location, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.5f);
+        player.sendMessage(ChatColor.GREEN + "チェックポイントを保存しました！");
+        player.playSound(location, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.5f);
     }
 
     private void handleCheckpointTeleport(Player player) {
@@ -395,6 +403,59 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
             player.sendMessage(ChatColor.GREEN + "ゲームモードをアドベンチャーに変更しました。");
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 0.8f);
         }
+    }
+
+    public void giveCheckpointItems(Player player) {
+        ItemStack netherStar = createUtilityItem(
+            Material.NETHER_STAR,
+            ChatColor.AQUA,
+            "CheckPoint",
+            List.of(ChatColor.GRAY + "左クリック: チェックポイント一覧", ChatColor.GRAY + "右クリック: テレポート")
+        );
+
+        ItemStack slimeBall = createUtilityItem(
+            Material.SLIME_BALL,
+            ChatColor.GREEN,
+            "Set CheckPoint",
+            List.of(ChatColor.GRAY + "右クリック: 現在地を保存")
+        );
+
+        ItemStack feather = createUtilityItem(
+            Material.FEATHER,
+            ChatColor.GOLD,
+            "Change Gamemode",
+            List.of(ChatColor.GRAY + "右クリック: クリエ/アドベンチャー切替")
+        );
+
+        ItemStack heart = createUtilityItem(
+            Material.HEART_OF_THE_SEA,
+            ChatColor.LIGHT_PURPLE,
+            "CheckPoint List",
+            List.of(ChatColor.GRAY + "右クリック: チェックポイント一覧")
+        );
+
+        Map<Integer, ItemStack> leftovers = player.getInventory().addItem(netherStar, slimeBall, feather, heart);
+        if (!leftovers.isEmpty()) {
+            leftovers.values().forEach(stack -> player.getWorld().dropItemNaturally(player.getLocation(), stack));
+        }
+
+        player.sendMessage(ChatColor.AQUA + "チェックポイントアイテムを受け取りました。所持品を確認してください。");
+        player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 0.7f, 1.1f);
+    }
+
+    private ItemStack createUtilityItem(Material material, ChatColor color, String displayName, List<String> lore) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(color + displayName);
+            if (lore != null && !lore.isEmpty()) {
+                meta.setLore(lore);
+            }
+            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+            item.setItemMeta(meta);
+        }
+        return item;
     }
 
     private ItemStack createCheckpointPaper(String name, Checkpoint checkpoint, boolean selected) {
