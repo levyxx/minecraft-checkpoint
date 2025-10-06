@@ -110,7 +110,7 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
             return;
         }
 
-        if (type == Material.SLIME_BALL || type == Material.SLIME_BLOCK) {
+        if (type == Material.SLIME_BALL) {
             event.setCancelled(true);
             handleQuickCheckpointSave(player);
         } else if (type == Material.NETHER_STAR) {
