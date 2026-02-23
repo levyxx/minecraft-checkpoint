@@ -11,4 +11,5 @@ commands:
       /cp set <name>
       /cp update <name>
       /cp delete <name>
+      /cp rename <old-name> <new-name>
       /cp items

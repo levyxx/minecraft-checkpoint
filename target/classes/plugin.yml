@@ -1,5 +1,5 @@
 name: CheckpointPlugin
-version: ${project.version}
+version: 1.1.0
 main: io.github.levyxx.checkpoint.CheckpointPlugin
 api-version: '1.20'
 author: levyxx
@@ -11,4 +11,5 @@ commands:
       /cp set <name>
       /cp update <name>
       /cp delete <name>
+      /cp rename <old-name> <new-name>
       /cp items

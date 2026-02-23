@@ -1,0 +1,5 @@
+- cpのrename機能
+- cpのshare機能
+- cp名の部分一致検索機能
+- cp名のソート機能
+- cpの
