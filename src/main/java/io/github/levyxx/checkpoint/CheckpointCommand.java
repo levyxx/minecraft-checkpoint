@@ -65,6 +65,13 @@ public class CheckpointCommand implements TabExecutor {
                 }
                 handleDelete(player, playerId, name);
             }
+            case "rename" -> {
+                if (args.length < 3) {
+                    sender.sendMessage(ChatColor.RED + "使い方: /" + label + " rename <元のCP名> <変更後のCP名>");
+                    return true;
+                }
+                handleRename(player, playerId, args[1], args[2]);
+            }
             case "items" -> plugin.giveCheckpointItems(player);
             default -> sendUsage(sender, label);
         }
@@ -162,8 +169,27 @@ public class CheckpointCommand implements TabExecutor {
         }
     }
 
+    private void handleRename(Player player, UUID playerId, String oldName, String newName) {
+        CheckpointManager.RenameResult result;
+        try {
+            result = checkpointManager.renameNamedCheckpoint(playerId, oldName, newName);
+        } catch (IllegalArgumentException ex) {
+            player.sendMessage(ChatColor.RED + ex.getMessage());
+            return;
+        }
+
+        switch (result) {
+            case SUCCESS -> player.sendMessage(ChatColor.GREEN
+                + "チェックポイント『" + oldName + "』を『" + newName + "』に変更しました。");
+            case OLD_NOT_FOUND -> player.sendMessage(ChatColor.RED
+                + "チェックポイント『" + oldName + "』は見つかりませんでした。");
+            case NEW_ALREADY_EXISTS -> player.sendMessage(ChatColor.RED
+                + "チェックポイント『" + newName + "』は既に存在します。");
+        }
+    }
+
     private void sendUsage(CommandSender sender, String label) {
-        sender.sendMessage(ChatColor.YELLOW + "使い方: /" + label + " set <名前>・/" + label + " update <名前>・/" + label + " delete <名前>・/" + label + " items");
+        sender.sendMessage(ChatColor.YELLOW + "使い方: /" + label + " set <名前>・/" + label + " update <名前>・/" + label + " delete <名前>・/" + label + " rename <元のCP名> <変更後のCP名>・/" + label + " items");
     }
 
     @Override
@@ -173,12 +199,13 @@ public class CheckpointCommand implements TabExecutor {
         }
 
         if (args.length == 1) {
-            return List.of("set", "update", "delete", "items").stream()
+            return List.of("set", "update", "delete", "rename", "items").stream()
                 .filter(opt -> opt.startsWith(args[0].toLowerCase(Locale.ROOT)))
                 .collect(Collectors.toList());
         }
 
-        if (args.length >= 2 && ("delete".equalsIgnoreCase(args[0]) || "update".equalsIgnoreCase(args[0]))) {
+        if (args.length >= 2 && ("delete".equalsIgnoreCase(args[0]) || "update".equalsIgnoreCase(args[0])
+                || "rename".equalsIgnoreCase(args[0]))) {
             List<String> names = new ArrayList<>(checkpointManager.getNamedCheckpointNames(player.getUniqueId()));
             String entered = args[1].toLowerCase(Locale.ROOT);
             return names.stream()

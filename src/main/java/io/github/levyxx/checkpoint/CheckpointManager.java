@@ -182,6 +182,41 @@ public class CheckpointManager {
             .findFirst();
     }
 
+    public enum RenameResult {
+        SUCCESS,
+        OLD_NOT_FOUND,
+        NEW_ALREADY_EXISTS
+    }
+
+    public RenameResult renameNamedCheckpoint(UUID playerId, String oldRawName, String newRawName) {
+        UUID validatedId = Objects.requireNonNull(playerId, "playerId cannot be null");
+        String oldName = validateName(oldRawName);
+        String newName = validateName(newRawName);
+
+        Map<String, Checkpoint> playerMap = namedCheckpoints.get(validatedId);
+        if (playerMap == null) {
+            return RenameResult.OLD_NOT_FOUND;
+        }
+
+        Optional<String> oldKey = findExistingKey(playerMap, oldName);
+        if (oldKey.isEmpty()) {
+            return RenameResult.OLD_NOT_FOUND;
+        }
+
+        Optional<String> newKey = findExistingKey(playerMap, newName);
+        if (newKey.isPresent()) {
+            return RenameResult.NEW_ALREADY_EXISTS;
+        }
+
+        Checkpoint checkpoint = playerMap.remove(oldKey.get());
+        playerMap.put(newName, checkpoint);
+
+        selectedNamedCheckpoints.computeIfPresent(validatedId,
+            (id, selected) -> selected.equalsIgnoreCase(oldName) ? newName : selected);
+
+        return RenameResult.SUCCESS;
+    }
+
     private String validateName(String rawName) {
         if (rawName == null) {
             throw new IllegalArgumentException("name cannot be null");

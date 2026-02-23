@@ -117,4 +117,74 @@ class CheckpointManagerTest {
         assertTrue(removed, "削除は成功するはず");
         assertTrue(manager.getSelectedNamedCheckpoint(playerId).isEmpty(), "削除後は選択が解除されるべき");
     }
+
+    @Test
+    @DisplayName("名前付きチェックポイントの名前を変更できる")
+    void shouldRenameNamedCheckpoint() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID playerId = UUID.randomUUID();
+        Checkpoint checkpoint = new Checkpoint("world", 1.0, 65.0, 2.0, 0.0f, 0.0f);
+        manager.addNamedCheckpoint(playerId, "Base", checkpoint);
+
+        CheckpointManager.RenameResult result = manager.renameNamedCheckpoint(playerId, "Base", "Home");
+
+        assertEquals(CheckpointManager.RenameResult.SUCCESS, result, "リネームは成功するはず");
+        assertTrue(manager.getNamedCheckpoint(playerId, "Home").isPresent(), "新しい名前で取得できるはず");
+        assertTrue(manager.getNamedCheckpoint(playerId, "Base").isEmpty(), "古い名前では取得できないはず");
+        assertEquals(checkpoint, manager.getNamedCheckpoint(playerId, "Home").get(), "チェックポイントのデータが保持されるはず");
+    }
+
+    @Test
+    @DisplayName("大文字小文字を無視してリネームできる")
+    void shouldRenameWithCaseInsensitiveOldName() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID playerId = UUID.randomUUID();
+        manager.addNamedCheckpoint(playerId, "Base", new Checkpoint("world", 0.0, 64.0, 0.0, 0.0f, 0.0f));
+
+        CheckpointManager.RenameResult result = manager.renameNamedCheckpoint(playerId, "BASE", "NewBase");
+
+        assertEquals(CheckpointManager.RenameResult.SUCCESS, result, "大文字小文字を無視してリネームできるはず");
+    }
+
+    @Test
+    @DisplayName("存在しない名前付きチェックポイントはリネームできない")
+    void shouldReturnOldNotFoundWhenRenamingUnknown() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID playerId = UUID.randomUUID();
+
+        CheckpointManager.RenameResult result = manager.renameNamedCheckpoint(playerId, "Ghost", "NewName");
+
+        assertEquals(CheckpointManager.RenameResult.OLD_NOT_FOUND, result, "存在しない場合はOLD_NOT_FOUNDを返すはず");
+    }
+
+    @Test
+    @DisplayName("新しい名前が既に存在する場合はリネームできない")
+    void shouldReturnNewAlreadyExistsWhenConflict() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID playerId = UUID.randomUUID();
+        Checkpoint checkpoint = new Checkpoint("world", 0.0, 64.0, 0.0, 0.0f, 0.0f);
+        manager.addNamedCheckpoint(playerId, "Base", checkpoint);
+        manager.addNamedCheckpoint(playerId, "Home", checkpoint);
+
+        CheckpointManager.RenameResult result = manager.renameNamedCheckpoint(playerId, "Base", "home");
+
+        assertEquals(CheckpointManager.RenameResult.NEW_ALREADY_EXISTS, result, "新名が既存の場合はNEW_ALREADY_EXISTSを返すはず");
+    }
+
+    @Test
+    @DisplayName("選択中のチェックポイントをリネームすると選択も更新される")
+    void shouldUpdateSelectionWhenSelectedCheckpointRenamed() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID playerId = UUID.randomUUID();
+        Checkpoint checkpoint = new Checkpoint("world", 5.0, 64.0, 5.0, 0.0f, 0.0f);
+        manager.addNamedCheckpoint(playerId, "Mine", checkpoint);
+        manager.selectNamedCheckpoint(playerId, "Mine");
+
+        manager.renameNamedCheckpoint(playerId, "Mine", "Cave");
+
+        assertEquals("Cave", manager.getSelectedNamedCheckpointName(playerId).orElse(null),
+            "リネーム後も選択が新しい名前に追従するはず");
+        assertEquals(checkpoint, manager.getSelectedNamedCheckpoint(playerId).orElse(null),
+            "リネーム後も選択したチェックポイントが取得できるはず");
+    }
 }
