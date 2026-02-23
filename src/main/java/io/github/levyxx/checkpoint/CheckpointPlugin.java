@@ -30,12 +30,14 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.NamespacedKey;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
 
@@ -53,7 +55,10 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
     private static final int SLOT_NEXT      = 53;
 
     private static final String GUI_TITLE   = ChatColor.DARK_AQUA + "チェックポイント一覧";
-    private static final String SORT_TITLE  = ChatColor.DARK_AQUA + "ソート方法を選択";
+    private static final String SORT_TITLE          = ChatColor.DARK_AQUA + "ソート方法を選択";
+    private static final String PLAYER_SELECT_TITLE  = ChatColor.DARK_AQUA + "プレイヤーを選択";
+    private static final String CP_OPERATION_TITLE   = ChatColor.DARK_AQUA + "CP操作";
+    private static final int    SLOT_PLAYER_HEAD     = 4;
 
     private static final int TELEPORT_MAX_ATTEMPTS    = 5;
     private static final long TELEPORT_RETRY_DELAY_TICKS = 1L;
@@ -68,6 +73,9 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
     private final Map<UUID, SortOrder>  playerSortOrders = new ConcurrentHashMap<>();
     private final Map<UUID, String>     playerSearchQuery= new ConcurrentHashMap<>();
     private final Set<UUID>             awaitingSearchInput = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, UUID>   viewingPlayerId     = new ConcurrentHashMap<>();
+    private final Map<UUID, String> pendingOperationCp  = new ConcurrentHashMap<>();
+    private final Map<UUID, String> awaitingRenameInput = new ConcurrentHashMap<>();
 
     private enum SelectionType { NAMED, QUICK }
     private record LastSelection(SelectionType type, String identifier) {}
@@ -97,6 +105,9 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
         this.playerSortOrders.clear();
         this.playerSearchQuery.clear();
         this.awaitingSearchInput.clear();
+        this.viewingPlayerId.clear();
+        this.pendingOperationCp.clear();
+        this.awaitingRenameInput.clear();
         this.checkpointManager = null;
         getLogger().info("Checkpoint plugin disabled.");
     }
@@ -252,21 +263,30 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
         return checkpointManager.getQuickCheckpoint(playerId);
     }
 
-    private void openCheckpointMenu(Player player, int requestedPage) {
-        UUID playerId = player.getUniqueId();
-        SortOrder order = playerSortOrders.getOrDefault(playerId, SortOrder.NAME_ASC);
-        String query = playerSearchQuery.get(playerId);
-        double px = player.getLocation().getX();
-        double pz = player.getLocation().getZ();
+    private void openCheckpointMenu(Player viewer, int requestedPage) {
+        UUID viewerId = viewer.getUniqueId();
+        UUID targetId = viewingPlayerId.getOrDefault(viewerId, viewerId);
+        openCheckpointMenuFor(viewer, requestedPage, targetId);
+    }
+
+    private void openCheckpointMenuFor(Player viewer, int requestedPage, UUID targetId) {
+        UUID viewerId = viewer.getUniqueId();
+        viewingPlayerId.put(viewerId, targetId);
+        boolean isSelf = targetId.equals(viewerId);
+
+        SortOrder order = playerSortOrders.getOrDefault(viewerId, SortOrder.NAME_ASC);
+        String query = playerSearchQuery.get(viewerId);
+        double px = viewer.getLocation().getX();
+        double pz = viewer.getLocation().getZ();
 
         List<String> names = checkpointManager.getSortedFilteredCheckpointNames(
-            playerId, order, query, px, pz);
+            targetId, order, query, px, pz);
 
         int totalPages = Math.max(1, (int) Math.ceil(Math.max(1, names.size()) / (double) ITEMS_PER_PAGE));
         int page = Math.max(0, Math.min(requestedPage, totalPages - 1));
-        menuPages.put(playerId, page);
+        menuPages.put(viewerId, page);
 
-        Inventory inventory = Bukkit.createInventory(player, GUI_SIZE, GUI_TITLE);
+        Inventory inventory = Bukkit.createInventory(viewer, GUI_SIZE, GUI_TITLE);
 
         // --- Border decoration (top row, left/right columns, bottom row)
         for (int slot = 0; slot < GUI_SIZE; slot++) {
@@ -280,8 +300,13 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
             }
         }
 
+        // --- Player head at top-row middle (slot 4): shows who is being viewed
+        inventory.setItem(SLOT_PLAYER_HEAD, createPlayerHeadItem(Bukkit.getOfflinePlayer(targetId), isSelf));
+
         // --- Checkpoint items in inner area (rows 1-4, cols 1-7)
-        Optional<String> selectedName = checkpointManager.getSelectedNamedCheckpointName(playerId);
+        Optional<String> selectedName = isSelf
+            ? checkpointManager.getSelectedNamedCheckpointName(viewerId)
+            : Optional.empty();
         int startIndex = page * ITEMS_PER_PAGE;
         int itemIndex = 0;
         for (int row = 1; row <= 4; row++) {
@@ -290,10 +315,10 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
                 int dataIndex = startIndex + itemIndex;
                 if (dataIndex < names.size()) {
                     String name = names.get(dataIndex);
-                    Optional<Checkpoint> checkpoint = checkpointManager.getNamedCheckpoint(playerId, name);
+                    Optional<Checkpoint> checkpoint = checkpointManager.getNamedCheckpoint(targetId, name);
                     if (checkpoint.isPresent()) {
                         boolean selected = selectedName.map(s -> s.equalsIgnoreCase(name)).orElse(false);
-                        inventory.setItem(slot, createCheckpointPaper(name, checkpoint.get(), selected));
+                        inventory.setItem(slot, createCheckpointPaper(name, checkpoint.get(), selected, isSelf));
                     }
                 }
                 itemIndex++;
@@ -320,8 +345,8 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
             inventory.setItem(SLOT_NEXT, createDisabledNavItem(ChatColor.DARK_GRAY + "次のページなし"));
         }
 
-        player.openInventory(inventory);
-        player.playSound(player.getLocation(), Sound.BLOCK_ENDER_CHEST_OPEN, 0.6f, 1.2f);
+        viewer.openInventory(inventory);
+        viewer.playSound(viewer.getLocation(), Sound.BLOCK_ENDER_CHEST_OPEN, 0.6f, 1.2f);
     }
 
     @EventHandler
@@ -347,6 +372,47 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
             return;
         }
 
+        // ---- Player select screen -----------------------------------------
+        if (PLAYER_SELECT_TITLE.equals(title)) {
+            event.setCancelled(true);
+            ItemStack clicked = event.getCurrentItem();
+            if (clicked == null || clicked.getType() != Material.PLAYER_HEAD) return;
+            ItemMeta clickedMeta = clicked.getItemMeta();
+            if (clickedMeta == null) return;
+            String uuidStr = clickedMeta.getPersistentDataContainer()
+                .get(new NamespacedKey(this, "target_uuid"), PersistentDataType.STRING);
+            if (uuidStr == null) return;
+            UUID targetId = UUID.fromString(uuidStr);
+            UUID viewerId = player.getUniqueId();
+            viewingPlayerId.put(viewerId, targetId);
+            menuPages.put(viewerId, 0);
+            playerSearchQuery.remove(viewerId);
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
+            openCheckpointMenuFor(player, 0, targetId);
+            return;
+        }
+
+        // ---- CP operation menu -------------------------------------------
+        if (CP_OPERATION_TITLE.equals(title)) {
+            event.setCancelled(true);
+            UUID viewerId = player.getUniqueId();
+            String cpName = pendingOperationCp.get(viewerId);
+            if (cpName == null) return;
+            UUID targetId = viewingPlayerId.getOrDefault(viewerId, viewerId);
+            boolean isSelf = targetId.equals(viewerId);
+            int rawSlot = event.getRawSlot();
+            if (isSelf) {
+                if (rawSlot == 10) executeTeleportToCp(player, targetId, cpName);
+                else if (rawSlot == 12) executeUpdateCp(player, cpName);
+                else if (rawSlot == 14) startRenameInput(player, cpName);
+                else if (rawSlot == 16) executeDeleteCp(player, cpName);
+            } else {
+                if (rawSlot == 11) executeTeleportToCp(player, targetId, cpName);
+                else if (rawSlot == 15) executeCloneCp(player, targetId, cpName);
+            }
+            return;
+        }
+
         // ---- Main CP list screen ------------------------------------------
         if (!GUI_TITLE.equals(title)) return;
         if (event.getClickedInventory() == null) return;
@@ -356,24 +422,40 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
         if (rawSlot < 0 || rawSlot >= GUI_SIZE) return;
 
         UUID playerId = player.getUniqueId();
+        UUID targetId = viewingPlayerId.getOrDefault(playerId, playerId);
+        boolean isSelf = targetId.equals(playerId);
         SortOrder order = playerSortOrders.getOrDefault(playerId, SortOrder.NAME_ASC);
         String query = playerSearchQuery.get(playerId);
         double px = player.getLocation().getX();
         double pz = player.getLocation().getZ();
         List<String> names = checkpointManager.getSortedFilteredCheckpointNames(
-            playerId, order, query, px, pz);
+            targetId, order, query, px, pz);
         int page = menuPages.getOrDefault(playerId, 0);
         int totalPages = Math.max(1, (int) Math.ceil(Math.max(1, names.size()) / (double) ITEMS_PER_PAGE));
+
+        // Player head: open player selector
+        if (rawSlot == SLOT_PLAYER_HEAD) {
+            openPlayerSelectMenu(player);
+            return;
+        }
 
         // CP item click (rows 1-4, cols 1-7)
         int row = rawSlot / 9;
         int col = rawSlot % 9;
         if (row >= 1 && row <= 4 && col >= 1 && col <= 7) {
-            if (!event.isLeftClick()) return;
             int itemIndex = (row - 1) * 7 + (col - 1);
             int dataIndex = page * ITEMS_PER_PAGE + itemIndex;
             if (dataIndex >= names.size()) return;
             String name = names.get(dataIndex);
+            if (event.isRightClick()) {
+                openCpOperationMenu(player, name, targetId);
+                return;
+            }
+            // Left click: own CP → select and close / other's CP → teleport directly
+            if (!isSelf) {
+                executeTeleportToCp(player, targetId, name);
+                return;
+            }
             if (checkpointManager.selectNamedCheckpoint(playerId, name)) {
                 checkpointManager.getSelectedNamedCheckpointName(playerId)
                     .ifPresent(actualName -> markLastSelection(playerId, SelectionType.NAMED, actualName));
@@ -415,12 +497,17 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
     public void onInventoryClose(InventoryCloseEvent event) {
         if (!(event.getPlayer() instanceof Player player)) return;
         String title = event.getView().getTitle();
-        if (!GUI_TITLE.equals(title) && !SORT_TITLE.equals(title)) return;
+        boolean isOurMenu = GUI_TITLE.equals(title) || SORT_TITLE.equals(title)
+            || PLAYER_SELECT_TITLE.equals(title) || CP_OPERATION_TITLE.equals(title);
+        if (!isOurMenu) return;
 
         Bukkit.getScheduler().runTaskLater(this, () -> {
             String newTitle = player.getOpenInventory().getTitle();
-            if (!GUI_TITLE.equals(newTitle) && !SORT_TITLE.equals(newTitle)) {
+            boolean newIsOurMenu = GUI_TITLE.equals(newTitle) || SORT_TITLE.equals(newTitle)
+                || PLAYER_SELECT_TITLE.equals(newTitle) || CP_OPERATION_TITLE.equals(newTitle);
+            if (!newIsOurMenu) {
                 menuPages.remove(player.getUniqueId());
+                pendingOperationCp.remove(player.getUniqueId());
             }
         }, 1L);
     }
@@ -537,6 +624,39 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
     public void onPlayerChat(AsyncPlayerChatEvent event) {
         Player player = event.getPlayer();
         UUID playerId = player.getUniqueId();
+
+        // ---- Rename input ------------------------------------------------
+        if (awaitingRenameInput.containsKey(playerId)) {
+            event.setCancelled(true);
+            String message = event.getMessage().trim();
+            String oldName = awaitingRenameInput.remove(playerId);
+            Bukkit.getScheduler().runTask(this, () -> {
+                if (message.equalsIgnoreCase("cancel")) {
+                    player.sendMessage(ChatColor.GRAY + "リネームをキャンセルしました。");
+                    openCheckpointMenu(player, menuPages.getOrDefault(playerId, 0));
+                    return;
+                }
+                CheckpointManager.RenameResult result =
+                    checkpointManager.renameNamedCheckpoint(playerId, oldName, message);
+                switch (result) {
+                    case SUCCESS -> {
+                        player.sendMessage(ChatColor.GREEN + "『" + oldName + "』を『" + message + "』にリネームしました。");
+                        openCheckpointMenu(player, menuPages.getOrDefault(playerId, 0));
+                    }
+                    case OLD_NOT_FOUND -> {
+                        player.sendMessage(ChatColor.RED + "CP『" + oldName + "』が見つかりませんでした。");
+                        openCheckpointMenu(player, menuPages.getOrDefault(playerId, 0));
+                    }
+                    case NEW_ALREADY_EXISTS -> {
+                        player.sendMessage(ChatColor.RED + "CP『" + message + "』は既に存在します。再入力してください。");
+                        awaitingRenameInput.put(playerId, oldName);
+                        player.sendMessage(ChatColor.GRAY + "  新しいCP名を入力 / 『cancel』でキャンセル");
+                    }
+                }
+            });
+            return;
+        }
+
         if (!awaitingSearchInput.remove(playerId)) return;
 
         event.setCancelled(true);
@@ -632,7 +752,7 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
         return item;
     }
 
-    private ItemStack createCheckpointPaper(String name, Checkpoint checkpoint, boolean selected) {
+    private ItemStack createCheckpointPaper(String name, Checkpoint checkpoint, boolean selected, boolean isSelf) {
         ItemStack paper = new ItemStack(Material.PAPER);
         ItemMeta meta = paper.getItemMeta();
         if (meta != null) {
@@ -642,7 +762,12 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
             lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "X: %.1f Y: %.1f Z: %.1f", checkpoint.x(), checkpoint.y(), checkpoint.z()));
             lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "Yaw: %.1f Pitch: %.1f", checkpoint.yaw(), checkpoint.pitch()));
             lore.add("");
-            lore.add(selected ? ChatColor.AQUA + "現在選択中" : ChatColor.YELLOW + "左クリックで選択");
+            if (isSelf) {
+                lore.add(selected ? ChatColor.AQUA + "現在選択中"
+                    : ChatColor.YELLOW + "左クリックで選択 / 右クリックで操作");
+            } else {
+                lore.add(ChatColor.YELLOW + "左クリックでテレポート / 右クリックで操作");
+            }
             meta.setLore(lore);
             if (selected) {
                 meta.addEnchant(Enchantment.LUCK, 1, true);
@@ -777,5 +902,231 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
             item.setItemMeta(meta);
         }
         return item;
+    }
+
+    // -----------------------------------------------------------------------
+    // Player select menu
+    // -----------------------------------------------------------------------
+
+    private void openPlayerSelectMenu(Player viewer) {
+        List<? extends Player> online = new ArrayList<>(Bukkit.getOnlinePlayers());
+        int rowCount = Math.max(1, (int) Math.ceil(online.size() / 9.0));
+        int size = Math.min(54, rowCount * 9);
+        Inventory inv = Bukkit.createInventory(viewer, size, PLAYER_SELECT_TITLE);
+        NamespacedKey targetUuidKey = new NamespacedKey(this, "target_uuid");
+        UUID viewerId = viewer.getUniqueId();
+        UUID currentTarget = viewingPlayerId.getOrDefault(viewerId, viewerId);
+        for (int i = 0; i < online.size() && i < 54; i++) {
+            Player target = online.get(i);
+            UUID targetId = target.getUniqueId();
+            ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+            SkullMeta skullMeta = (SkullMeta) head.getItemMeta();
+            if (skullMeta != null) {
+                skullMeta.setOwningPlayer(target);
+                boolean isViewing = targetId.equals(currentTarget);
+                skullMeta.setDisplayName(
+                    (targetId.equals(viewerId) ? ChatColor.AQUA : ChatColor.YELLOW) + target.getName());
+                List<String> lore = new ArrayList<>();
+                lore.add(ChatColor.GRAY + "CP数: " +
+                    checkpointManager.getNamedCheckpointNames(targetId).size());
+                if (isViewing) {
+                    lore.add(ChatColor.GREEN + "✔ 現在表示中");
+                    skullMeta.addEnchant(Enchantment.LUCK, 1, true);
+                    skullMeta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+                } else {
+                    lore.add(ChatColor.YELLOW + "クリックでCP一覧を表示");
+                }
+                skullMeta.setLore(lore);
+                skullMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+                skullMeta.getPersistentDataContainer()
+                    .set(targetUuidKey, PersistentDataType.STRING, targetId.toString());
+                head.setItemMeta(skullMeta);
+            }
+            inv.setItem(i, head);
+        }
+        viewer.openInventory(inv);
+        viewer.playSound(viewer.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
+    }
+
+    // -----------------------------------------------------------------------
+    // CP operation menu
+    // -----------------------------------------------------------------------
+
+    private void openCpOperationMenu(Player viewer, String cpName, UUID targetId) {
+        UUID viewerId = viewer.getUniqueId();
+        boolean isSelf = targetId.equals(viewerId);
+        pendingOperationCp.put(viewerId, cpName);
+        Inventory inv = Bukkit.createInventory(viewer, 27, CP_OPERATION_TITLE);
+        for (int s = 0; s < 9; s++) inv.setItem(s, createGlassDeco(Material.CYAN_STAINED_GLASS_PANE));
+        for (int s = 18; s < 27; s++) inv.setItem(s, createGlassDeco(Material.CYAN_STAINED_GLASS_PANE));
+        for (int s = 9; s < 18; s++) inv.setItem(s, createGlassDeco(Material.LIGHT_BLUE_STAINED_GLASS_PANE));
+        checkpointManager.getNamedCheckpoint(targetId, cpName)
+            .ifPresent(cp -> inv.setItem(9, createCheckpointPaperInfo(cpName, cp)));
+        if (isSelf) {
+            inv.setItem(10, createOperationWoolItem(Material.GREEN_WOOL,
+                ChatColor.GREEN + "テレポート", "クリックでこのCPにテレポート"));
+            inv.setItem(12, createOperationWoolItem(Material.BLUE_WOOL,
+                ChatColor.AQUA + "座標を更新", "現在の座標でこのCPを上書き"));
+            inv.setItem(14, createOperationWoolItem(Material.YELLOW_WOOL,
+                ChatColor.YELLOW + "リネーム", "このCPの名前を変更"));
+            inv.setItem(16, createOperationWoolItem(Material.RED_WOOL,
+                ChatColor.RED + "削除", "このCPを削除する"));
+        } else {
+            OfflinePlayer tp = Bukkit.getOfflinePlayer(targetId);
+            String tName = tp.getName() != null ? tp.getName() : "不明";
+            inv.setItem(11, createOperationWoolItem(Material.GREEN_WOOL,
+                ChatColor.GREEN + "テレポート", "クリックでこのCPにテレポート"));
+            inv.setItem(15, createOperationWoolItem(Material.CYAN_WOOL,
+                ChatColor.AQUA + "クローン", tName + " のCPを自分のリストに追加"));
+        }
+        viewer.openInventory(inv);
+        viewer.playSound(viewer.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
+    }
+
+    private void executeTeleportToCp(Player viewer, UUID targetId, String cpName) {
+        Optional<Checkpoint> cpOpt = checkpointManager.getNamedCheckpoint(targetId, cpName);
+        if (cpOpt.isEmpty()) {
+            viewer.sendMessage(ChatColor.RED + "CPが見つかりません。");
+            viewer.closeInventory();
+            return;
+        }
+        Checkpoint checkpoint = cpOpt.get();
+        World world = Bukkit.getWorld(checkpoint.worldName());
+        if (world == null) {
+            viewer.sendMessage(ChatColor.RED + "チェックポイントのワールドが見つかりませんでした。");
+            viewer.closeInventory();
+            return;
+        }
+        Location destination = new Location(world,
+            checkpoint.x(), checkpoint.y(), checkpoint.z(),
+            checkpoint.yaw(), checkpoint.pitch());
+        viewer.closeInventory();
+        preparePlayerForTeleport(viewer);
+        ensureChunkLoaded(destination);
+        attemptTeleport(viewer, destination, TELEPORT_MAX_ATTEMPTS);
+        viewer.playSound(viewer.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
+    }
+
+    private void executeUpdateCp(Player viewer, String cpName) {
+        Location location = viewer.getLocation();
+        World world = location.getWorld();
+        if (world == null) {
+            viewer.sendMessage(ChatColor.RED + "ワールド情報が取得できませんでした。");
+            return;
+        }
+        Checkpoint updated = new Checkpoint(world.getName(),
+            location.getX(), location.getY(), location.getZ(),
+            location.getYaw(), location.getPitch());
+        boolean success = checkpointManager.updateNamedCheckpoint(
+            viewer.getUniqueId(), cpName, updated);
+        viewer.closeInventory();
+        if (success) {
+            viewer.sendMessage(ChatColor.GREEN + "チェックポイント『" + cpName + "』を現在地に更新しました。");
+            viewer.playSound(viewer.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
+        } else {
+            viewer.sendMessage(ChatColor.RED + "更新に失敗しました。");
+        }
+    }
+
+    private void executeDeleteCp(Player viewer, String cpName) {
+        UUID viewerId = viewer.getUniqueId();
+        boolean success = checkpointManager.removeNamedCheckpoint(viewerId, cpName);
+        notifyNamedCheckpointDeleted(viewerId, cpName);
+        viewer.closeInventory();
+        if (success) {
+            viewer.sendMessage(ChatColor.GREEN + "チェックポイント『" + cpName + "』を削除しました。");
+            viewer.playSound(viewer.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
+            openCheckpointMenu(viewer, Math.max(0, menuPages.getOrDefault(viewerId, 0) - 1));
+        } else {
+            viewer.sendMessage(ChatColor.RED + "削除に失敗しました。");
+        }
+    }
+
+    private void startRenameInput(Player viewer, String oldName) {
+        awaitingRenameInput.put(viewer.getUniqueId(), oldName);
+        viewer.closeInventory();
+        viewer.sendMessage("");
+        viewer.sendMessage(ChatColor.YELLOW + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        viewer.sendMessage(ChatColor.AQUA + "  CP リネーム: " + ChatColor.GOLD + oldName);
+        viewer.sendMessage(ChatColor.YELLOW + "  新しいCP名をチャットに入力してください。");
+        viewer.sendMessage(ChatColor.GRAY + "  『" + ChatColor.RED + "cancel"
+            + ChatColor.GRAY + "』でキャンセル");
+        viewer.sendMessage(ChatColor.YELLOW + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        viewer.sendMessage("");
+    }
+
+    private void executeCloneCp(Player viewer, UUID targetId, String cpName) {
+        Optional<Checkpoint> cpOpt = checkpointManager.getNamedCheckpoint(targetId, cpName);
+        if (cpOpt.isEmpty()) {
+            viewer.sendMessage(ChatColor.RED + "CPが見つかりません。");
+            viewer.closeInventory();
+            return;
+        }
+        Checkpoint src = cpOpt.get();
+        Checkpoint cloned = new Checkpoint(src.worldName(),
+            src.x(), src.y(), src.z(), src.yaw(), src.pitch());
+        boolean success = checkpointManager.addNamedCheckpoint(
+            viewer.getUniqueId(), cpName, cloned);
+        viewer.closeInventory();
+        if (success) {
+            viewer.sendMessage(ChatColor.GREEN + "チェックポイント『" + cpName + "』をクローンしました。");
+            viewer.playSound(viewer.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
+        } else {
+            viewer.sendMessage(ChatColor.YELLOW + "同名のCPが既に存在します: 『" + cpName + "』");
+        }
+    }
+
+    private ItemStack createPlayerHeadItem(OfflinePlayer target, boolean isSelf) {
+        ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+        SkullMeta meta = (SkullMeta) head.getItemMeta();
+        if (meta != null) {
+            meta.setOwningPlayer(target);
+            String name = target.getName() != null ? target.getName() : "不明";
+            meta.setDisplayName(ChatColor.YELLOW +
+                (isSelf ? "自分（" + name + "）" : name + " のCP"));
+            meta.setLore(List.of(
+                ChatColor.GRAY + "クリックでプレイヤーを変更",
+                isSelf
+                    ? ChatColor.AQUA + "現在: 自分のCPを表示中"
+                    : ChatColor.AQUA + "現在: " + name + " のCPを表示中"
+            ));
+            head.setItemMeta(meta);
+        }
+        return head;
+    }
+
+    private ItemStack createOperationWoolItem(Material wool, String displayName, String loreText) {
+        ItemStack item = new ItemStack(wool);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(displayName);
+            meta.setLore(List.of(
+                ChatColor.GRAY + loreText,
+                ChatColor.YELLOW + "クリックで実行"
+            ));
+            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    private ItemStack createCheckpointPaperInfo(String name, Checkpoint checkpoint) {
+        ItemStack paper = new ItemStack(Material.PAPER);
+        ItemMeta meta = paper.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(ChatColor.GOLD + name);
+            meta.setLore(List.of(
+                ChatColor.GRAY + "ワールド: " + checkpoint.worldName(),
+                ChatColor.GRAY + String.format(Locale.ROOT,
+                    "X: %.1f Y: %.1f Z: %.1f",
+                    checkpoint.x(), checkpoint.y(), checkpoint.z()),
+                ChatColor.GRAY + String.format(Locale.ROOT,
+                    "Yaw: %.1f Pitch: %.1f",
+                    checkpoint.yaw(), checkpoint.pitch())
+            ));
+            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            paper.setItemMeta(meta);
+        }
+        return paper;
     }
 }
