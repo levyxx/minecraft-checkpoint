@@ -3,6 +3,8 @@ package io.github.levyxx.checkpoint;
 import static org.junit.jupiter.api.Assertions.*;
 
 import io.github.levyxx.checkpoint.CheckpointManager.Checkpoint;
+import io.github.levyxx.checkpoint.CheckpointManager.SortOrder;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -186,5 +188,122 @@ class CheckpointManagerTest {
             "リネーム後も選択が新しい名前に追従するはず");
         assertEquals(checkpoint, manager.getSelectedNamedCheckpoint(playerId).orElse(null),
             "リネーム後も選択したチェックポイントが取得できるはず");
+    }
+
+    // -----------------------------------------------------------------------
+    // Sort / Search tests
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("NAME_ASCで名前の昇順にソートされる")
+    void shouldSortByNameAsc() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID playerId = UUID.randomUUID();
+        manager.addNamedCheckpoint(playerId, "Zeta",  new Checkpoint("world", 0, 64, 0, 0, 0));
+        manager.addNamedCheckpoint(playerId, "Alpha", new Checkpoint("world", 0, 64, 0, 0, 0));
+        manager.addNamedCheckpoint(playerId, "Mango", new Checkpoint("world", 0, 64, 0, 0, 0));
+
+        List<String> names = manager.getSortedFilteredCheckpointNames(
+            playerId, SortOrder.NAME_ASC, null, 0, 0);
+
+        assertEquals(List.of("Alpha", "Mango", "Zeta"), names);
+    }
+
+    @Test
+    @DisplayName("NAME_DESCで名前の降順にソートされる")
+    void shouldSortByNameDesc() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID playerId = UUID.randomUUID();
+        manager.addNamedCheckpoint(playerId, "Zeta",  new Checkpoint("world", 0, 64, 0, 0, 0));
+        manager.addNamedCheckpoint(playerId, "Alpha", new Checkpoint("world", 0, 64, 0, 0, 0));
+
+        List<String> names = manager.getSortedFilteredCheckpointNames(
+            playerId, SortOrder.NAME_DESC, null, 0, 0);
+
+        assertEquals(List.of("Zeta", "Alpha"), names);
+    }
+
+    @Test
+    @DisplayName("部分一致でフィルタリングされる")
+    void shouldFilterByQuery() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID playerId = UUID.randomUUID();
+        manager.addNamedCheckpoint(playerId, "Home",   new Checkpoint("world", 0, 64, 0, 0, 0));
+        manager.addNamedCheckpoint(playerId, "HomeCave", new Checkpoint("world", 0, 64, 0, 0, 0));
+        manager.addNamedCheckpoint(playerId, "Base",   new Checkpoint("world", 0, 64, 0, 0, 0));
+
+        List<String> names = manager.getSortedFilteredCheckpointNames(
+            playerId, SortOrder.NAME_ASC, "home", 0, 0);
+
+        assertEquals(2, names.size(), "homeを含む2件のみ");
+        assertFalse(names.contains("Base"), "Baseは除外されるべき");
+    }
+
+    @Test
+    @DisplayName("空クエリはフィルタリングしない")
+    void shouldNotFilterOnBlankQuery() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID playerId = UUID.randomUUID();
+        manager.addNamedCheckpoint(playerId, "A", new Checkpoint("world", 0, 64, 0, 0, 0));
+        manager.addNamedCheckpoint(playerId, "B", new Checkpoint("world", 0, 64, 0, 0, 0));
+
+        List<String> names = manager.getSortedFilteredCheckpointNames(
+            playerId, SortOrder.NAME_ASC, "  ", 0, 0);
+
+        assertEquals(2, names.size());
+    }
+
+    @Test
+    @DisplayName("DISTANCE_ASCでプレイヤーに近い順にソートされる")
+    void shouldSortByDistanceAsc() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID playerId = UUID.randomUUID();
+        // Far
+        manager.addNamedCheckpoint(playerId, "Far",  new Checkpoint("world", 1000, 64, 0, 0, 0));
+        // Near
+        manager.addNamedCheckpoint(playerId, "Near", new Checkpoint("world", 1,    64, 0, 0, 0));
+
+        List<String> names = manager.getSortedFilteredCheckpointNames(
+            playerId, SortOrder.DISTANCE_ASC, null, 0, 0);
+
+        assertEquals("Near", names.get(0), "近い方が先頭であるべき");
+        assertEquals("Far",  names.get(1), "遠い方が末尾であるべき");
+    }
+
+    @Test
+    @DisplayName("updateNamedCheckpointはcreatedAtを保持しupdatedAtを更新する")
+    void shouldPreserveCreatedAtOnUpdate() throws InterruptedException {
+        CheckpointManager manager = new CheckpointManager();
+        UUID playerId = UUID.randomUUID();
+        Checkpoint original = new Checkpoint("world", 0, 64, 0, 0, 0);
+        manager.addNamedCheckpoint(playerId, "Base", original);
+
+        Checkpoint atAdd = manager.getNamedCheckpoint(playerId, "Base").get();
+        Thread.sleep(10); // ensure time passes
+
+        Checkpoint newCp = new Checkpoint("world", 1, 65, 1, 0, 0);
+        manager.updateNamedCheckpoint(playerId, "Base", newCp);
+
+        Checkpoint afterUpdate = manager.getNamedCheckpoint(playerId, "Base").get();
+
+        assertEquals(atAdd.createdAt(), afterUpdate.createdAt(), "createdAtは変わらないはず");
+        assertTrue(afterUpdate.updatedAt().isAfter(atAdd.updatedAt()), "updatedAtが更新されるはず");
+    }
+
+    @Test
+    @DisplayName("renameNamedCheckpointはupdatedAtを更新する")
+    void shouldUpdateUpdatedAtOnRename() throws InterruptedException {
+        CheckpointManager manager = new CheckpointManager();
+        UUID playerId = UUID.randomUUID();
+        manager.addNamedCheckpoint(playerId, "OldName", new Checkpoint("world", 0, 64, 0, 0, 0));
+
+        Checkpoint before = manager.getNamedCheckpoint(playerId, "OldName").get();
+        Thread.sleep(10);
+
+        manager.renameNamedCheckpoint(playerId, "OldName", "NewName");
+        Checkpoint after = manager.getNamedCheckpoint(playerId, "NewName").get();
+
+        assertEquals(before.createdAt(), after.createdAt(), "createdAtは変わらないはず");
+        assertTrue(after.updatedAt().isAfter(before.updatedAt()), "renameでupdatedAtが更新されるはず");
     }
 }
