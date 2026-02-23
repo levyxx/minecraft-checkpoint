@@ -73,6 +73,7 @@ public class CheckpointCommand implements TabExecutor {
                 handleRename(player, playerId, args[1], args[2]);
             }
             case "items" -> plugin.giveCheckpointItems(player);
+            case "help" -> sendHelp(sender, label);
             default -> sendUsage(sender, label);
         }
         return true;
@@ -189,7 +190,27 @@ public class CheckpointCommand implements TabExecutor {
     }
 
     private void sendUsage(CommandSender sender, String label) {
-        sender.sendMessage(ChatColor.YELLOW + "使い方: /" + label + " set <名前>・/" + label + " update <名前>・/" + label + " delete <名前>・/" + label + " rename <元のCP名> <変更後のCP名>・/" + label + " items");
+        sender.sendMessage(ChatColor.YELLOW + "使い方: /" + label + " <set|update|delete|rename|items|help>");
+    }
+
+    private void sendHelp(CommandSender sender, String label) {
+        String l = label;
+        sender.sendMessage(ChatColor.DARK_AQUA + "────────────────────────────────");
+        sender.sendMessage(ChatColor.AQUA + "  /" + l + " コマンド一覧");
+        sender.sendMessage(ChatColor.DARK_AQUA + "────────────────────────────────");
+        sender.sendMessage(ChatColor.YELLOW + "/" + l + " set <名前>"
+            + ChatColor.GRAY + "  現在地を指定した名前で保存します");
+        sender.sendMessage(ChatColor.YELLOW + "/" + l + " update <名前>"
+            + ChatColor.GRAY + "  既存CPの座標を現在地で上書きします");
+        sender.sendMessage(ChatColor.YELLOW + "/" + l + " delete <名前>"
+            + ChatColor.GRAY + "  指定したCPを削除します");
+        sender.sendMessage(ChatColor.YELLOW + "/" + l + " rename <元の名前> <新しい名前>"
+            + ChatColor.GRAY + "  CPの名前を変更します");
+        sender.sendMessage(ChatColor.YELLOW + "/" + l + " items"
+            + ChatColor.GRAY + "  チェックポイント用アイテムを受け取ります");
+        sender.sendMessage(ChatColor.YELLOW + "/" + l + " help"
+            + ChatColor.GRAY + "  このヘルプを表示します");
+        sender.sendMessage(ChatColor.DARK_AQUA + "────────────────────────────────");
     }
 
     @Override
@@ -199,7 +220,7 @@ public class CheckpointCommand implements TabExecutor {
         }
 
         if (args.length == 1) {
-            return List.of("set", "update", "delete", "rename", "items").stream()
+            return List.of("set", "update", "delete", "rename", "items", "help").stream()
                 .filter(opt -> opt.startsWith(args[0].toLowerCase(Locale.ROOT)))
                 .collect(Collectors.toList());
         }
