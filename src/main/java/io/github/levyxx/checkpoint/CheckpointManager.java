@@ -284,6 +284,18 @@ public class CheckpointManager {
         NEW_ALREADY_EXISTS
     }
 
+    public boolean setNamedCheckpointDescription(UUID playerId, String rawName, String description) {
+        if (playerId == null) return false;
+        Map<String, Checkpoint> playerMap = namedCheckpoints.get(playerId);
+        if (playerMap == null) return false;
+        String name = validateName(rawName);
+        Optional<String> actualKey = findExistingKey(playerMap, name);
+        if (actualKey.isEmpty()) return false;
+        Checkpoint existing = playerMap.get(actualKey.get());
+        playerMap.put(actualKey.get(), existing.withDescription(description));
+        return true;
+    }
+
     public RenameResult renameNamedCheckpoint(UUID playerId, String oldRawName, String newRawName) {
         UUID validatedId = Objects.requireNonNull(playerId, "playerId cannot be null");
         String oldName = validateName(oldRawName);
@@ -335,13 +347,19 @@ public class CheckpointManager {
         private final float pitch;
         private final Instant createdAt;
         private final Instant updatedAt;
+        private final String description;
 
         public Checkpoint(String worldName, double x, double y, double z, float yaw, float pitch) {
-            this(worldName, x, y, z, yaw, pitch, Instant.now(), Instant.now());
+            this(worldName, x, y, z, yaw, pitch, Instant.now(), Instant.now(), "");
         }
 
         public Checkpoint(String worldName, double x, double y, double z, float yaw, float pitch,
                           Instant createdAt, Instant updatedAt) {
+            this(worldName, x, y, z, yaw, pitch, createdAt, updatedAt, "");
+        }
+
+        public Checkpoint(String worldName, double x, double y, double z, float yaw, float pitch,
+                          Instant createdAt, Instant updatedAt, String description) {
             if (worldName == null || worldName.isBlank()) {
                 throw new IllegalArgumentException("worldName must be provided");
             }
@@ -353,6 +371,7 @@ public class CheckpointManager {
             this.pitch = pitch;
             this.createdAt = Objects.requireNonNull(createdAt);
             this.updatedAt = Objects.requireNonNull(updatedAt);
+            this.description = description == null ? "" : description.trim();
         }
 
         public String worldName() { return worldName; }
@@ -363,10 +382,16 @@ public class CheckpointManager {
         public float pitch() { return pitch; }
         public Instant createdAt() { return createdAt; }
         public Instant updatedAt() { return updatedAt; }
+        public String description() { return description; }
 
         /** Returns a new Checkpoint with the given timestamps. */
         public Checkpoint withTimestamps(Instant newCreatedAt, Instant newUpdatedAt) {
-            return new Checkpoint(worldName, x, y, z, yaw, pitch, newCreatedAt, newUpdatedAt);
+            return new Checkpoint(worldName, x, y, z, yaw, pitch, newCreatedAt, newUpdatedAt, description);
+        }
+
+        /** Returns a new Checkpoint with the given description and refreshed updatedAt. */
+        public Checkpoint withDescription(String newDescription) {
+            return new Checkpoint(worldName, x, y, z, yaw, pitch, createdAt, Instant.now(), newDescription);
         }
 
         @Override
