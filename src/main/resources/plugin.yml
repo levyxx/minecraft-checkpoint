@@ -8,8 +8,10 @@ commands:
   cp:
     description: Manage personal named checkpoints.
     usage: |-
-      /cp set <name>
+      /cp set <name> [description]
       /cp update <name>
       /cp delete <name>
       /cp rename <old-name> <new-name>
+      /cp description <name> <description>
       /cp items
+      /cp help
