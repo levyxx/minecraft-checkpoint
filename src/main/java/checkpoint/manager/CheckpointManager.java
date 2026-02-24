@@ -1,5 +1,8 @@
-package io.github.levyxx.checkpoint;
+package checkpoint.manager;
 
+import checkpoint.model.Checkpoint;
+import checkpoint.model.RenameResult;
+import checkpoint.model.SortOrder;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,32 +27,10 @@ public class CheckpointManager {
     // Sort / Search
     // -----------------------------------------------------------------------
 
-    public enum SortOrder {
-        NAME_ASC("名前順（昇順）"),
-        NAME_DESC("名前順（降順）"),
-        CREATED_ASC("作成日時（古い順）"),
-        CREATED_DESC("作成日時（新しい順）"),
-        UPDATED_ASC("更新日時（古い順）"),
-        UPDATED_DESC("更新日時（新しい順）"),
-        DISTANCE_ASC("距離（近い順）");
-
-        public final String label;
-
-        SortOrder(String label) {
-            this.label = label;
-        }
-    }
-
     /**
      * Returns a sorted (and optionally filtered) list of checkpoint names for
      * the given player. If {@code query} is non-null and non-empty the list is
      * filtered to names that contain the query string (case-insensitive).
-     *
-     * @param playerId   the player
-     * @param order      sort order to apply
-     * @param query      optional substring filter (null or blank = no filter)
-     * @param playerX    player X coordinate (used for DISTANCE sorts)
-     * @param playerZ    player Z coordinate (used for DISTANCE sorts)
      */
     public List<String> getSortedFilteredCheckpointNames(
             UUID playerId, SortOrder order, String query,
@@ -129,6 +110,10 @@ public class CheckpointManager {
             quickCheckpoints.remove(playerId);
         }
     }
+
+    // -----------------------------------------------------------------------
+    // Named checkpoints
+    // -----------------------------------------------------------------------
 
     public boolean addNamedCheckpoint(UUID playerId, String rawName, Checkpoint checkpoint) {
         UUID validatedId = Objects.requireNonNull(playerId, "playerId cannot be null");
@@ -218,6 +203,10 @@ public class CheckpointManager {
         return Collections.unmodifiableList(names);
     }
 
+    // -----------------------------------------------------------------------
+    // Selection
+    // -----------------------------------------------------------------------
+
     public boolean selectNamedCheckpoint(UUID playerId, String rawName) {
         if (playerId == null) {
             return false;
@@ -268,21 +257,9 @@ public class CheckpointManager {
         }
     }
 
-    private Optional<String> findExistingKey(Map<String, Checkpoint> playerMap, String rawName) {
-        if (playerMap == null || rawName == null) {
-            return Optional.empty();
-        }
-        String name = rawName.trim();
-        return playerMap.keySet().stream()
-            .filter(existing -> existing.equalsIgnoreCase(name))
-            .findFirst();
-    }
-
-    public enum RenameResult {
-        SUCCESS,
-        OLD_NOT_FOUND,
-        NEW_ALREADY_EXISTS
-    }
+    // -----------------------------------------------------------------------
+    // Description
+    // -----------------------------------------------------------------------
 
     public boolean setNamedCheckpointDescription(UUID playerId, String rawName, String description) {
         if (playerId == null) return false;
@@ -295,6 +272,10 @@ public class CheckpointManager {
         playerMap.put(actualKey.get(), existing.withDescription(description));
         return true;
     }
+
+    // -----------------------------------------------------------------------
+    // Rename
+    // -----------------------------------------------------------------------
 
     public RenameResult renameNamedCheckpoint(UUID playerId, String oldRawName, String newRawName) {
         UUID validatedId = Objects.requireNonNull(playerId, "playerId cannot be null");
@@ -327,6 +308,20 @@ public class CheckpointManager {
         return RenameResult.SUCCESS;
     }
 
+    // -----------------------------------------------------------------------
+    // Internal helpers
+    // -----------------------------------------------------------------------
+
+    private Optional<String> findExistingKey(Map<String, Checkpoint> playerMap, String rawName) {
+        if (playerMap == null || rawName == null) {
+            return Optional.empty();
+        }
+        String name = rawName.trim();
+        return playerMap.keySet().stream()
+            .filter(existing -> existing.equalsIgnoreCase(name))
+            .findFirst();
+    }
+
     private String validateName(String rawName) {
         if (rawName == null) {
             throw new IllegalArgumentException("name cannot be null");
@@ -336,82 +331,5 @@ public class CheckpointManager {
             throw new IllegalArgumentException("name cannot be blank");
         }
         return trimmed;
-    }
-
-    public static final class Checkpoint {
-        private final String worldName;
-        private final double x;
-        private final double y;
-        private final double z;
-        private final float yaw;
-        private final float pitch;
-        private final Instant createdAt;
-        private final Instant updatedAt;
-        private final String description;
-
-        public Checkpoint(String worldName, double x, double y, double z, float yaw, float pitch) {
-            this(worldName, x, y, z, yaw, pitch, Instant.now(), Instant.now(), "");
-        }
-
-        public Checkpoint(String worldName, double x, double y, double z, float yaw, float pitch,
-                          Instant createdAt, Instant updatedAt) {
-            this(worldName, x, y, z, yaw, pitch, createdAt, updatedAt, "");
-        }
-
-        public Checkpoint(String worldName, double x, double y, double z, float yaw, float pitch,
-                          Instant createdAt, Instant updatedAt, String description) {
-            if (worldName == null || worldName.isBlank()) {
-                throw new IllegalArgumentException("worldName must be provided");
-            }
-            this.worldName = worldName;
-            this.x = x;
-            this.y = y;
-            this.z = z;
-            this.yaw = yaw;
-            this.pitch = pitch;
-            this.createdAt = Objects.requireNonNull(createdAt);
-            this.updatedAt = Objects.requireNonNull(updatedAt);
-            this.description = description == null ? "" : description.trim();
-        }
-
-        public String worldName() { return worldName; }
-        public double x() { return x; }
-        public double y() { return y; }
-        public double z() { return z; }
-        public float yaw() { return yaw; }
-        public float pitch() { return pitch; }
-        public Instant createdAt() { return createdAt; }
-        public Instant updatedAt() { return updatedAt; }
-        public String description() { return description; }
-
-        /** Returns a new Checkpoint with the given timestamps. */
-        public Checkpoint withTimestamps(Instant newCreatedAt, Instant newUpdatedAt) {
-            return new Checkpoint(worldName, x, y, z, yaw, pitch, newCreatedAt, newUpdatedAt, description);
-        }
-
-        /** Returns a new Checkpoint with the given description and refreshed updatedAt. */
-        public Checkpoint withDescription(String newDescription) {
-            return new Checkpoint(worldName, x, y, z, yaw, pitch, createdAt, Instant.now(), newDescription);
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof Checkpoint c)) return false;
-            return Double.compare(x, c.x) == 0 && Double.compare(y, c.y) == 0
-                && Double.compare(z, c.z) == 0
-                && Float.compare(yaw, c.yaw) == 0 && Float.compare(pitch, c.pitch) == 0
-                && worldName.equals(c.worldName);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(worldName, x, y, z, yaw, pitch);
-        }
-
-        @Override
-        public String toString() {
-            return "Checkpoint{world=" + worldName + ", x=" + x + ", y=" + y + ", z=" + z + "}";
-        }
     }
 }

@@ -1,3 +1,12 @@
-/home/user/minecraft/minecraft-checkpoint/src/main/java/io/github/levyxx/checkpoint/CheckpointPlugin.java
-/home/user/minecraft/minecraft-checkpoint/src/main/java/io/github/levyxx/checkpoint/CheckpointManager.java
-/home/user/minecraft/minecraft-checkpoint/src/main/java/io/github/levyxx/checkpoint/CheckpointCommand.java
+/home/user/minecraft/minecraft-checkpoint/src/main/java/checkpoint/model/SortOrder.java
+/home/user/minecraft/minecraft-checkpoint/src/main/java/checkpoint/gui/GuiConstants.java
+/home/user/minecraft/minecraft-checkpoint/src/main/java/checkpoint/manager/CheckpointManager.java
+/home/user/minecraft/minecraft-checkpoint/src/main/java/checkpoint/listener/ChatInputListener.java
+/home/user/minecraft/minecraft-checkpoint/src/main/java/checkpoint/listener/PlayerListener.java
+/home/user/minecraft/minecraft-checkpoint/src/main/java/checkpoint/gui/MenuManager.java
+/home/user/minecraft/minecraft-checkpoint/src/main/java/checkpoint/CheckpointPlugin.java
+/home/user/minecraft/minecraft-checkpoint/src/main/java/checkpoint/model/Checkpoint.java
+/home/user/minecraft/minecraft-checkpoint/src/main/java/checkpoint/gui/ItemFactory.java
+/home/user/minecraft/minecraft-checkpoint/src/main/java/checkpoint/command/CheckpointCommand.java
+/home/user/minecraft/minecraft-checkpoint/src/main/java/checkpoint/listener/InventoryClickListener.java
+/home/user/minecraft/minecraft-checkpoint/src/main/java/checkpoint/model/RenameResult.java

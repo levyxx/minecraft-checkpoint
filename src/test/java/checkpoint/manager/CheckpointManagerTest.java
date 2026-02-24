@@ -1,9 +1,10 @@
-package io.github.levyxx.checkpoint;
+package checkpoint.manager;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import io.github.levyxx.checkpoint.CheckpointManager.Checkpoint;
-import io.github.levyxx.checkpoint.CheckpointManager.SortOrder;
+import checkpoint.model.Checkpoint;
+import checkpoint.model.RenameResult;
+import checkpoint.model.SortOrder;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -128,9 +129,9 @@ class CheckpointManagerTest {
         Checkpoint checkpoint = new Checkpoint("world", 1.0, 65.0, 2.0, 0.0f, 0.0f);
         manager.addNamedCheckpoint(playerId, "Base", checkpoint);
 
-        CheckpointManager.RenameResult result = manager.renameNamedCheckpoint(playerId, "Base", "Home");
+        RenameResult result = manager.renameNamedCheckpoint(playerId, "Base", "Home");
 
-        assertEquals(CheckpointManager.RenameResult.SUCCESS, result, "リネームは成功するはず");
+        assertEquals(RenameResult.SUCCESS, result, "リネームは成功するはず");
         assertTrue(manager.getNamedCheckpoint(playerId, "Home").isPresent(), "新しい名前で取得できるはず");
         assertTrue(manager.getNamedCheckpoint(playerId, "Base").isEmpty(), "古い名前では取得できないはず");
         assertEquals(checkpoint, manager.getNamedCheckpoint(playerId, "Home").get(), "チェックポイントのデータが保持されるはず");
@@ -143,9 +144,9 @@ class CheckpointManagerTest {
         UUID playerId = UUID.randomUUID();
         manager.addNamedCheckpoint(playerId, "Base", new Checkpoint("world", 0.0, 64.0, 0.0, 0.0f, 0.0f));
 
-        CheckpointManager.RenameResult result = manager.renameNamedCheckpoint(playerId, "BASE", "NewBase");
+        RenameResult result = manager.renameNamedCheckpoint(playerId, "BASE", "NewBase");
 
-        assertEquals(CheckpointManager.RenameResult.SUCCESS, result, "大文字小文字を無視してリネームできるはず");
+        assertEquals(RenameResult.SUCCESS, result, "大文字小文字を無視してリネームできるはず");
     }
 
     @Test
@@ -154,9 +155,9 @@ class CheckpointManagerTest {
         CheckpointManager manager = new CheckpointManager();
         UUID playerId = UUID.randomUUID();
 
-        CheckpointManager.RenameResult result = manager.renameNamedCheckpoint(playerId, "Ghost", "NewName");
+        RenameResult result = manager.renameNamedCheckpoint(playerId, "Ghost", "NewName");
 
-        assertEquals(CheckpointManager.RenameResult.OLD_NOT_FOUND, result, "存在しない場合はOLD_NOT_FOUNDを返すはず");
+        assertEquals(RenameResult.OLD_NOT_FOUND, result, "存在しない場合はOLD_NOT_FOUNDを返すはず");
     }
 
     @Test
@@ -168,9 +169,9 @@ class CheckpointManagerTest {
         manager.addNamedCheckpoint(playerId, "Base", checkpoint);
         manager.addNamedCheckpoint(playerId, "Home", checkpoint);
 
-        CheckpointManager.RenameResult result = manager.renameNamedCheckpoint(playerId, "Base", "home");
+        RenameResult result = manager.renameNamedCheckpoint(playerId, "Base", "home");
 
-        assertEquals(CheckpointManager.RenameResult.NEW_ALREADY_EXISTS, result, "新名が既存の場合はNEW_ALREADY_EXISTSを返すはず");
+        assertEquals(RenameResult.NEW_ALREADY_EXISTS, result, "新名が既存の場合はNEW_ALREADY_EXISTSを返すはず");
     }
 
     @Test

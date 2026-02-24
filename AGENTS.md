@@ -9,22 +9,36 @@
 | 言語 | Java 17 |
 | ビルド | Maven (`mvn package`) |
 | テスト | JUnit 5 (`mvn test`) |
-| メインクラス | `io.github.levyxx.checkpoint.CheckpointPlugin` |
+| メインクラス | `checkpoint.CheckpointPlugin` |
 
 ---
 
 ## ディレクトリ構成
 
 ```
-src/main/java/.../checkpoint/
-  CheckpointPlugin.java    # プラグインエントリポイント（onEnable / onDisable）
-  CheckpointManager.java   # チェックポイントのインメモリ管理ロジック
-  CheckpointCommand.java   # /cp コマンドの実装（TabExecutor）
+src/main/java/checkpoint/
+  CheckpointPlugin.java              # プラグインエントリポイント（onEnable / onDisable）
+  model/
+    Checkpoint.java                  # チェックポイントデータモデル（不変クラス）
+    SortOrder.java                   # ソート順 enum
+    RenameResult.java                # リネーム結果 enum
+  manager/
+    CheckpointManager.java           # チェックポイントのインメモリ CRUD・ソート・検索
+  command/
+    CheckpointCommand.java           # /cp コマンドの実装（TabExecutor）
+  gui/
+    GuiConstants.java                # GUI 定数（スロット番号・タイトル・フォーマッタ）
+    ItemFactory.java                 # GUI 用 ItemStack 生成（紙・矢印・染料・ウール等）
+    MenuManager.java                 # 全 GUI 状態管理・メニュー表示・CP 操作実行
+  listener/
+    InventoryClickListener.java      # インベントリクリックイベントハンドラ
+    ChatInputListener.java           # チャット入力イベントハンドラ（検索・リネーム・説明）
+    PlayerListener.java              # アイテム操作・ドロップ防止・インベントリクローズ
 src/main/resources/
-  plugin.yml               # Bukkit プラグイン設定（コマンド定義・バージョン）
-src/test/java/.../checkpoint/
-  CheckpointManagerTest.java  # CheckpointManager の単体テスト
-pom.xml                    # Maven ビルド設定（バージョン管理）
+  plugin.yml                         # Bukkit プラグイン設定（コマンド定義・バージョン）
+src/test/java/checkpoint/manager/
+  CheckpointManagerTest.java         # CheckpointManager の単体テスト
+pom.xml                              # Maven ビルド設定（バージョン管理）
 ```
 
 > `target/classes/plugin.yml` はビルド時に `src/main/resources/plugin.yml` から自動生成されます。
@@ -39,7 +53,7 @@ pom.xml                    # Maven ビルド設定（バージョン管理）
 ### pom.xml
 ```xml
 <!-- 7〜9行目付近 -->
-<version>1.1.0</version>  ← ここを変更
+<version>1.4.0</version>  ← ここを変更
 ```
 
 `plugin.yml` の `version: ${project.version}` は Maven のリソースフィルタリング（`pom.xml` の `<build><resources><filtering>true</filtering>`）によってビルド時に自動展開されます。
@@ -59,10 +73,10 @@ pom.xml                    # Maven ビルド設定（バージョン管理）
 
 `/cp <subcommand>` を新たに追加する際は **以下の4か所** を修正してください。
 
-### 1. `CheckpointManager.java`（必要な場合）
-ロジックを追加します。結果を表す enum（例: `RenameResult`）や新メソッドはこのクラスに実装します。
+### 1. `manager/CheckpointManager.java`（必要な場合）
+ロジックを追加します。結果を表す enum は `model/` パッケージに、新メソッドはこのクラスに実装します。
 
-### 2. `CheckpointCommand.java`
+### 2. `command/CheckpointCommand.java`
 
 #### ① `onCommand()` の switch 文にケースを追加
 ```java
@@ -109,7 +123,7 @@ commands:
 
 > 追記後は `mvn process-resources`（または `mvn package`）を実行して `target/classes/plugin.yml` に反映してください。
 
-### 4. `CheckpointManagerTest.java`
+### 4. `manager/CheckpointManagerTest.java`
 
 新しいロジックに対応する単体テストを追加します。`CheckpointManager` に新メソッドを追加した場合は必ずテストを書いてください。
 
