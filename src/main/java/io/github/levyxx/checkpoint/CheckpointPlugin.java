@@ -401,15 +401,17 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
             UUID targetId = viewingPlayerId.getOrDefault(viewerId, viewerId);
             boolean isSelf = targetId.equals(viewerId);
             int rawSlot = event.getRawSlot();
-            if (isSelf) {
-                if (rawSlot == 10) executeTeleportToCp(player, targetId, cpName);
-                else if (rawSlot == 12) executeUpdateCp(player, cpName);
-                else if (rawSlot == 14) startRenameInput(player, cpName);
-                else if (rawSlot == 16) executeDeleteCp(player, cpName);
-            } else {
-                if (rawSlot == 11) executeTeleportToCp(player, targetId, cpName);
-                else if (rawSlot == 15) executeCloneCp(player, targetId, cpName);
-            }
+            Bukkit.getScheduler().runTask(this, () -> {
+                if (isSelf) {
+                    if (rawSlot == 10) executeTeleportToCp(player, targetId, cpName);
+                    else if (rawSlot == 12) executeUpdateCp(player, cpName);
+                    else if (rawSlot == 14) startRenameInput(player, cpName);
+                    else if (rawSlot == 16) executeDeleteCp(player, cpName);
+                } else {
+                    if (rawSlot == 11) executeTeleportToCp(player, targetId, cpName);
+                    else if (rawSlot == 15) executeCloneCp(player, targetId, cpName);
+                }
+            });
             return;
         }
 
@@ -1017,12 +1019,13 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
         Checkpoint updated = new Checkpoint(world.getName(),
             location.getX(), location.getY(), location.getZ(),
             location.getYaw(), location.getPitch());
-        boolean success = checkpointManager.updateNamedCheckpoint(
-            viewer.getUniqueId(), cpName, updated);
+        UUID viewerId = viewer.getUniqueId();
+        boolean success = checkpointManager.updateNamedCheckpoint(viewerId, cpName, updated);
         viewer.closeInventory();
         if (success) {
             viewer.sendMessage(ChatColor.GREEN + "チェックポイント『" + cpName + "』を現在地に更新しました。");
             viewer.playSound(viewer.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
+            openCheckpointMenu(viewer, menuPages.getOrDefault(viewerId, 0));
         } else {
             viewer.sendMessage(ChatColor.RED + "更新に失敗しました。");
         }

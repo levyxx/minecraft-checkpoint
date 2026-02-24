@@ -195,9 +195,9 @@ public class CheckpointCommand implements TabExecutor {
 
     private void sendHelp(CommandSender sender, String label) {
         String l = label;
-        sender.sendMessage(ChatColor.DARK_AQUA + "────────────────────────────────");
+        sender.sendMessage(ChatColor.DARK_AQUA + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         sender.sendMessage(ChatColor.AQUA + "  /" + l + " コマンド一覧");
-        sender.sendMessage(ChatColor.DARK_AQUA + "────────────────────────────────");
+        sender.sendMessage(ChatColor.DARK_AQUA + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         sender.sendMessage(ChatColor.YELLOW + "/" + l + " set <名前>"
             + ChatColor.GRAY + "  現在地を指定した名前で保存します");
         sender.sendMessage(ChatColor.YELLOW + "/" + l + " update <名前>"
@@ -210,7 +210,7 @@ public class CheckpointCommand implements TabExecutor {
             + ChatColor.GRAY + "  チェックポイント用アイテムを受け取ります");
         sender.sendMessage(ChatColor.YELLOW + "/" + l + " help"
             + ChatColor.GRAY + "  このヘルプを表示します");
-        sender.sendMessage(ChatColor.DARK_AQUA + "────────────────────────────────");
+        sender.sendMessage(ChatColor.DARK_AQUA + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
 
     @Override
