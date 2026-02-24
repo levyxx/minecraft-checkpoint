@@ -1,6 +1,9 @@
-package io.github.levyxx.checkpoint;
+package checkpoint.command;
 
-import io.github.levyxx.checkpoint.CheckpointManager.Checkpoint;
+import checkpoint.CheckpointPlugin;
+import checkpoint.manager.CheckpointManager;
+import checkpoint.model.Checkpoint;
+import checkpoint.model.RenameResult;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -205,7 +208,7 @@ public class CheckpointCommand implements TabExecutor {
     }
 
     private void handleRename(Player player, UUID playerId, String oldName, String newName) {
-        CheckpointManager.RenameResult result;
+        RenameResult result;
         try {
             result = checkpointManager.renameNamedCheckpoint(playerId, oldName, newName);
         } catch (IllegalArgumentException ex) {
