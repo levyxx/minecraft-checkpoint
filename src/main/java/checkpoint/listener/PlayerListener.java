@@ -1,6 +1,8 @@
 package checkpoint.listener;
 
+import checkpoint.gui.GuiConstants;
 import checkpoint.gui.MenuManager;
+import checkpoint.i18n.Messages;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
@@ -13,6 +15,8 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -30,6 +34,17 @@ public class PlayerListener implements Listener {
     public PlayerListener(MenuManager menuManager, NamespacedKey cpItemKey) {
         this.menuManager = menuManager;
         this.cpItemKey = cpItemKey;
+    }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        Messages.setLang(player.getUniqueId(), Messages.detectLang(player.getLocale()));
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        Messages.removeLang(event.getPlayer().getUniqueId());
     }
 
     @EventHandler
@@ -90,22 +105,23 @@ public class PlayerListener implements Listener {
     public void onInventoryClose(InventoryCloseEvent event) {
         if (!(event.getPlayer() instanceof Player player)) return;
         String title = event.getView().getTitle();
-        if (!menuManager.isOurMenu(title)) return;
+        if (!GuiConstants.isOurMenu(title)) return;
         menuManager.scheduleMenuCloseCleanup(player);
     }
 
     private void handleGameModeToggle(Player player) {
+        java.util.UUID playerId = player.getUniqueId();
         GameMode current = player.getGameMode();
         if (current == GameMode.ADVENTURE) {
             player.setGameMode(GameMode.CREATIVE);
-            player.sendMessage(ChatColor.GREEN + "ゲームモードをクリエイティブに変更しました。");
+            player.sendMessage(ChatColor.GREEN + Messages.gmCreative(playerId));
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.3f);
             return;
         }
 
         if (current == GameMode.CREATIVE) {
             player.setGameMode(GameMode.ADVENTURE);
-            player.sendMessage(ChatColor.GREEN + "ゲームモードをアドベンチャーに変更しました。");
+            player.sendMessage(ChatColor.GREEN + Messages.gmAdventure(playerId));
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 0.8f);
         }
     }

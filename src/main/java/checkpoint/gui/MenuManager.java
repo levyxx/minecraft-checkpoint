@@ -1,5 +1,6 @@
 package checkpoint.gui;
 
+import checkpoint.i18n.Messages;
 import checkpoint.manager.CheckpointManager;
 import checkpoint.model.Checkpoint;
 import checkpoint.model.PlayerSortOrder;
@@ -94,9 +95,7 @@ public class MenuManager {
     }
 
     public boolean isOurMenu(String title) {
-        return GUI_TITLE.equals(title) || SORT_TITLE.equals(title)
-            || PLAYER_SELECT_TITLE.equals(title) || CP_OPERATION_TITLE.equals(title)
-            || PLAYER_SORT_TITLE.equals(title);
+        return GuiConstants.isOurMenu(title);
     }
 
     // -----------------------------------------------------------------------
@@ -152,19 +151,20 @@ public class MenuManager {
     // -----------------------------------------------------------------------
 
     public void handleQuickCheckpointSave(Player player) {
+        UUID playerId = player.getUniqueId();
         Location location = player.getLocation();
         World world = location.getWorld();
         if (world == null) {
-            player.sendMessage(ChatColor.RED + "ワールド情報が取得できませんでした。");
+            player.sendMessage(ChatColor.RED + Messages.cmdWorldError(playerId));
             return;
         }
 
         Checkpoint checkpoint = new Checkpoint(
             world.getName(), location.getX(), location.getY(), location.getZ(),
             location.getYaw(), location.getPitch());
-        checkpointManager.setQuickCheckpoint(player.getUniqueId(), checkpoint);
-        markLastSelection(player.getUniqueId(), SelectionType.QUICK, null);
-        player.sendMessage(ChatColor.GREEN + "チェックポイントを保存しました！");
+        checkpointManager.setQuickCheckpoint(playerId, checkpoint);
+        markLastSelection(playerId, SelectionType.QUICK, null);
+        player.sendMessage(ChatColor.GREEN + Messages.quickSaved(playerId));
         player.playSound(location, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.5f);
     }
 
@@ -177,14 +177,14 @@ public class MenuManager {
         Optional<Checkpoint> target = resolveTeleportTarget(playerId);
 
         if (target.isEmpty()) {
-            player.sendMessage(ChatColor.YELLOW + "チェックポイントがまだ登録されていません。");
+            player.sendMessage(ChatColor.YELLOW + Messages.noCheckpoint(playerId));
             return;
         }
 
         Checkpoint checkpoint = target.get();
         World world = Bukkit.getWorld(checkpoint.worldName());
         if (world == null) {
-            player.sendMessage(ChatColor.RED + "チェックポイントのワールドが見つかりませんでした。");
+            player.sendMessage(ChatColor.RED + Messages.worldNotFound(playerId));
             return;
         }
 
@@ -244,7 +244,8 @@ public class MenuManager {
         int page = Math.max(0, Math.min(requestedPage, totalPages - 1));
         menuPages.put(viewerId, page);
 
-        Inventory inventory = Bukkit.createInventory(viewer, GUI_SIZE, GUI_TITLE);
+        Inventory inventory = Bukkit.createInventory(viewer, GUI_SIZE,
+            ChatColor.DARK_AQUA + Messages.guiTitle(viewerId));
 
         // Border decoration
         for (int slot = 0; slot < GUI_SIZE; slot++) {
@@ -259,7 +260,7 @@ public class MenuManager {
         }
 
         // Player head at top-row middle
-        inventory.setItem(SLOT_PLAYER_HEAD, ItemFactory.createPlayerHeadItem(Bukkit.getOfflinePlayer(targetId), isSelf));
+        inventory.setItem(SLOT_PLAYER_HEAD, ItemFactory.createPlayerHeadItem(viewerId, Bukkit.getOfflinePlayer(targetId), isSelf));
 
         // CP items in inner area (rows 1-4, cols 1-7)
         Optional<String> selectedName = isSelf
@@ -276,7 +277,7 @@ public class MenuManager {
                     Optional<Checkpoint> checkpoint = checkpointManager.getNamedCheckpoint(targetId, name);
                     if (checkpoint.isPresent()) {
                         boolean selected = selectedName.map(s -> s.equalsIgnoreCase(name)).orElse(false);
-                        inventory.setItem(slot, ItemFactory.createCheckpointPaper(name, checkpoint.get(), selected, isSelf));
+                        inventory.setItem(slot, ItemFactory.createCheckpointPaper(viewerId, name, checkpoint.get(), selected, isSelf));
                     }
                 }
                 itemIndex++;
@@ -284,22 +285,22 @@ public class MenuManager {
         }
 
         if (names.isEmpty()) {
-            inventory.setItem(22, ItemFactory.createEmptyNoticeItem());
+            inventory.setItem(22, ItemFactory.createEmptyNoticeItem(viewerId));
         }
 
         // Bottom row controls
         if (totalPages > 1 && page > 0) {
-            inventory.setItem(SLOT_PREVIOUS, ItemFactory.createNavItem(false, page, totalPages));
+            inventory.setItem(SLOT_PREVIOUS, ItemFactory.createNavItem(viewerId, false, page, totalPages));
         } else {
-            inventory.setItem(SLOT_PREVIOUS, ItemFactory.createDisabledNavItem(ChatColor.DARK_GRAY + "前のページなし"));
+            inventory.setItem(SLOT_PREVIOUS, ItemFactory.createDisabledNavItem(viewerId, false));
         }
-        inventory.setItem(SLOT_SEARCH, ItemFactory.createAnvilSearchItem());
-        inventory.setItem(SLOT_INFO, ItemFactory.createInfoItem(page + 1, totalPages, names.size(), order, query));
-        inventory.setItem(SLOT_SORT, ItemFactory.createSortButtonItem(order));
+        inventory.setItem(SLOT_SEARCH, ItemFactory.createAnvilSearchItem(viewerId));
+        inventory.setItem(SLOT_INFO, ItemFactory.createInfoItem(viewerId, page + 1, totalPages, names.size(), order, query));
+        inventory.setItem(SLOT_SORT, ItemFactory.createSortButtonItem(viewerId, order));
         if (totalPages > 1 && page < totalPages - 1) {
-            inventory.setItem(SLOT_NEXT, ItemFactory.createNavItem(true, page, totalPages));
+            inventory.setItem(SLOT_NEXT, ItemFactory.createNavItem(viewerId, true, page, totalPages));
         } else {
-            inventory.setItem(SLOT_NEXT, ItemFactory.createDisabledNavItem(ChatColor.DARK_GRAY + "次のページなし"));
+            inventory.setItem(SLOT_NEXT, ItemFactory.createDisabledNavItem(viewerId, true));
         }
 
         viewer.openInventory(inventory);
@@ -307,8 +308,10 @@ public class MenuManager {
     }
 
     public void openSortMenu(Player player) {
-        Inventory inv = Bukkit.createInventory(player, 27, SORT_TITLE);
-        SortOrder current = playerSortOrders.getOrDefault(player.getUniqueId(), SortOrder.NAME_ASC);
+        UUID viewerId = player.getUniqueId();
+        Inventory inv = Bukkit.createInventory(player, 27,
+            ChatColor.DARK_AQUA + Messages.sortTitle(viewerId));
+        SortOrder current = playerSortOrders.getOrDefault(viewerId, SortOrder.NAME_ASC);
         SortOrder[] orders = SortOrder.values();
 
         for (int s = 0; s < 9; s++) inv.setItem(s, ItemFactory.createGlassDeco(Material.CYAN_STAINED_GLASS_PANE));
@@ -323,7 +326,7 @@ public class MenuManager {
         int dyeBase = 10;
         for (int i = 0; i < orders.length; i++) {
             inv.setItem(dyeBase + i, ItemFactory.createSortDyeItem(
-                dyeColors[i % dyeColors.length], orders[i], orders[i] == current));
+                viewerId, dyeColors[i % dyeColors.length], orders[i], orders[i] == current));
         }
 
         player.openInventory(inv);
@@ -345,7 +348,8 @@ public class MenuManager {
         psPage = Math.max(0, Math.min(psPage, totalPages - 1));
         playerSelectPages.put(viewerId, psPage);
 
-        Inventory inv = Bukkit.createInventory(viewer, GUI_SIZE, PLAYER_SELECT_TITLE);
+        Inventory inv = Bukkit.createInventory(viewer, GUI_SIZE,
+            ChatColor.DARK_AQUA + Messages.playerSelectTitle(viewerId));
 
         // Glass border (same pattern as CP list)
         for (int slot = 0; slot < GUI_SIZE; slot++) {
@@ -380,7 +384,7 @@ public class MenuManager {
                         .map(ItemFactory::formatInstant).orElse(null);
 
                     inv.setItem(slot, ItemFactory.createPlayerSelectHead(
-                        target, isSelf, isViewing, cpCount, lastCloneStr,
+                        viewerId, target, isSelf, isViewing, cpCount, lastCloneStr,
                         totalClonedCount, nearestDist, lastActivityStr, targetUuidKey));
                 }
                 itemIndex++;
@@ -389,17 +393,17 @@ public class MenuManager {
 
         // Bottom row controls
         if (totalPages > 1 && psPage > 0) {
-            inv.setItem(SLOT_PREVIOUS, ItemFactory.createNavItem(false, psPage, totalPages));
+            inv.setItem(SLOT_PREVIOUS, ItemFactory.createNavItem(viewerId, false, psPage, totalPages));
         } else {
-            inv.setItem(SLOT_PREVIOUS, ItemFactory.createDisabledNavItem(ChatColor.DARK_GRAY + "前のページなし"));
+            inv.setItem(SLOT_PREVIOUS, ItemFactory.createDisabledNavItem(viewerId, false));
         }
-        inv.setItem(SLOT_SEARCH, ItemFactory.createPlayerSearchItem());
-        inv.setItem(SLOT_INFO, ItemFactory.createPlayerInfoItem(psPage + 1, totalPages, totalItems, psOrder, psQuery));
-        inv.setItem(SLOT_SORT, ItemFactory.createPlayerSortButtonItem(psOrder));
+        inv.setItem(SLOT_SEARCH, ItemFactory.createPlayerSearchItem(viewerId));
+        inv.setItem(SLOT_INFO, ItemFactory.createPlayerInfoItem(viewerId, psPage + 1, totalPages, totalItems, psOrder, psQuery));
+        inv.setItem(SLOT_SORT, ItemFactory.createPlayerSortButtonItem(viewerId, psOrder));
         if (totalPages > 1 && psPage < totalPages - 1) {
-            inv.setItem(SLOT_NEXT, ItemFactory.createNavItem(true, psPage, totalPages));
+            inv.setItem(SLOT_NEXT, ItemFactory.createNavItem(viewerId, true, psPage, totalPages));
         } else {
-            inv.setItem(SLOT_NEXT, ItemFactory.createDisabledNavItem(ChatColor.DARK_GRAY + "次のページなし"));
+            inv.setItem(SLOT_NEXT, ItemFactory.createDisabledNavItem(viewerId, true));
         }
 
         viewer.openInventory(inv);
@@ -407,8 +411,10 @@ public class MenuManager {
     }
 
     public void openPlayerSortMenu(Player player) {
-        Inventory inv = Bukkit.createInventory(player, 27, PLAYER_SORT_TITLE);
-        PlayerSortOrder current = playerSelectSortOrders.getOrDefault(player.getUniqueId(), PlayerSortOrder.NAME_ASC);
+        UUID viewerId = player.getUniqueId();
+        Inventory inv = Bukkit.createInventory(player, 27,
+            ChatColor.DARK_AQUA + Messages.playerSortTitle(viewerId));
+        PlayerSortOrder current = playerSelectSortOrders.getOrDefault(viewerId, PlayerSortOrder.NAME_ASC);
         PlayerSortOrder[] orders = PlayerSortOrder.values();
 
         for (int s = 0; s < 9; s++) inv.setItem(s, ItemFactory.createGlassDeco(Material.CYAN_STAINED_GLASS_PANE));
@@ -423,7 +429,8 @@ public class MenuManager {
         int dyeBase = 10;
         for (int i = 0; i < orders.length; i++) {
             inv.setItem(dyeBase + i, ItemFactory.createSortDyeItem(
-                dyeColors[i % dyeColors.length], orders[i].label, orders[i] == current));
+                viewerId, dyeColors[i % dyeColors.length],
+                Messages.playerSortOrderLabel(viewerId, orders[i]), orders[i] == current));
         }
 
         player.openInventory(inv);
@@ -434,33 +441,34 @@ public class MenuManager {
         UUID viewerId = viewer.getUniqueId();
         boolean isSelf = targetId.equals(viewerId);
         pendingOperationCp.put(viewerId, cpName);
-        Inventory inv = Bukkit.createInventory(viewer, 27, CP_OPERATION_TITLE);
+        Inventory inv = Bukkit.createInventory(viewer, 27,
+            ChatColor.DARK_AQUA + Messages.cpOperationTitle(viewerId));
 
         for (int s = 0; s < 9; s++) inv.setItem(s, ItemFactory.createGlassDeco(Material.CYAN_STAINED_GLASS_PANE));
         for (int s = 18; s < 27; s++) inv.setItem(s, ItemFactory.createGlassDeco(Material.CYAN_STAINED_GLASS_PANE));
         for (int s = 9; s < 18; s++) inv.setItem(s, ItemFactory.createGlassDeco(Material.LIGHT_BLUE_STAINED_GLASS_PANE));
 
         checkpointManager.getNamedCheckpoint(targetId, cpName)
-            .ifPresent(cp -> inv.setItem(4, ItemFactory.createCheckpointPaperInfo(cpName, cp)));
+            .ifPresent(cp -> inv.setItem(4, ItemFactory.createCheckpointPaperInfo(viewerId, cpName, cp)));
 
         if (isSelf) {
-            inv.setItem(9,  ItemFactory.createOperationWoolItem(Material.GREEN_WOOL,
-                ChatColor.GREEN + "テレポート", "クリックでこのCPにテレポート"));
-            inv.setItem(11, ItemFactory.createOperationWoolItem(Material.BLUE_WOOL,
-                ChatColor.AQUA + "座標を更新", "現在の座標でこのCPを上書き"));
-            inv.setItem(13, ItemFactory.createOperationWoolItem(Material.YELLOW_WOOL,
-                ChatColor.YELLOW + "リネーム", "このCPの名前を変更"));
-            inv.setItem(15, ItemFactory.createOperationWoolItem(Material.ORANGE_WOOL,
-                ChatColor.GOLD + "説明を変更", "このCPの説明文を変更"));
-            inv.setItem(17, ItemFactory.createOperationWoolItem(Material.RED_WOOL,
-                ChatColor.RED + "削除", "このCPを削除する"));
+            inv.setItem(9,  ItemFactory.createOperationWoolItem(viewerId, Material.GREEN_WOOL,
+                ChatColor.GREEN + Messages.opTeleport(viewerId), Messages.opTeleportLore(viewerId)));
+            inv.setItem(11, ItemFactory.createOperationWoolItem(viewerId, Material.BLUE_WOOL,
+                ChatColor.AQUA + Messages.opUpdate(viewerId), Messages.opUpdateLore(viewerId)));
+            inv.setItem(13, ItemFactory.createOperationWoolItem(viewerId, Material.YELLOW_WOOL,
+                ChatColor.YELLOW + Messages.opRename(viewerId), Messages.opRenameLore(viewerId)));
+            inv.setItem(15, ItemFactory.createOperationWoolItem(viewerId, Material.ORANGE_WOOL,
+                ChatColor.GOLD + Messages.opDescChange(viewerId), Messages.opDescChangeLore(viewerId)));
+            inv.setItem(17, ItemFactory.createOperationWoolItem(viewerId, Material.RED_WOOL,
+                ChatColor.RED + Messages.opDelete(viewerId), Messages.opDeleteLore(viewerId)));
         } else {
             OfflinePlayer tp = Bukkit.getOfflinePlayer(targetId);
-            String tName = tp.getName() != null ? tp.getName() : "不明";
-            inv.setItem(12, ItemFactory.createOperationWoolItem(Material.GREEN_WOOL,
-                ChatColor.GREEN + "テレポート", "クリックでこのCPにテレポート"));
-            inv.setItem(14, ItemFactory.createOperationWoolItem(Material.CYAN_WOOL,
-                ChatColor.AQUA + "クローン", tName + " のCPを自分のリストに追加"));
+            String tName = tp.getName() != null ? tp.getName() : Messages.psUnknown(viewerId);
+            inv.setItem(12, ItemFactory.createOperationWoolItem(viewerId, Material.GREEN_WOOL,
+                ChatColor.GREEN + Messages.opTeleport(viewerId), Messages.opTeleportLore(viewerId)));
+            inv.setItem(14, ItemFactory.createOperationWoolItem(viewerId, Material.CYAN_WOOL,
+                ChatColor.AQUA + Messages.opClone(viewerId), Messages.opCloneLore(viewerId, tName)));
         }
 
         viewer.openInventory(inv);
@@ -619,7 +627,7 @@ public class MenuManager {
             if (checkpointManager.selectNamedCheckpoint(playerId, name)) {
                 checkpointManager.getSelectedNamedCheckpointName(playerId)
                     .ifPresent(actualName -> markLastSelection(playerId, SelectionType.NAMED, actualName));
-                player.sendMessage(ChatColor.AQUA + "チェックポイント『" + name + "』を選択しました。");
+                player.sendMessage(ChatColor.AQUA + Messages.cpSelected(playerId, name));
                 player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
                 player.closeInventory();
             }
@@ -662,7 +670,7 @@ public class MenuManager {
         if (cpName == null) return false;
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (message.equalsIgnoreCase("cancel")) {
-                player.sendMessage(ChatColor.GRAY + "説明変更をキャンセルしました。");
+                player.sendMessage(ChatColor.GRAY + Messages.descCancelled(playerId));
                 openCheckpointMenu(player, menuPages.getOrDefault(playerId, 0));
                 return;
             }
@@ -670,11 +678,11 @@ public class MenuManager {
             boolean success = checkpointManager.setNamedCheckpointDescription(playerId, cpName, desc);
             if (success) {
                 player.sendMessage(desc.isEmpty()
-                    ? ChatColor.GREEN + "『" + cpName + "』の説明を削除しました。"
-                    : ChatColor.GREEN + "『" + cpName + "』の説明を設定しました。");
+                    ? ChatColor.GREEN + Messages.descRemoved(playerId, cpName)
+                    : ChatColor.GREEN + Messages.descSet(playerId, cpName));
                 player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
             } else {
-                player.sendMessage(ChatColor.RED + "CP『" + cpName + "』が見つかりませんでした。");
+                player.sendMessage(ChatColor.RED + Messages.descNotFound(playerId, cpName));
             }
             openCheckpointMenu(player, menuPages.getOrDefault(playerId, 0));
         });
@@ -686,24 +694,24 @@ public class MenuManager {
         if (oldName == null) return false;
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (message.equalsIgnoreCase("cancel")) {
-                player.sendMessage(ChatColor.GRAY + "リネームをキャンセルしました。");
+                player.sendMessage(ChatColor.GRAY + Messages.renameCancelled(playerId));
                 openCheckpointMenu(player, menuPages.getOrDefault(playerId, 0));
                 return;
             }
             RenameResult result = checkpointManager.renameNamedCheckpoint(playerId, oldName, message);
             switch (result) {
                 case SUCCESS -> {
-                    player.sendMessage(ChatColor.GREEN + "『" + oldName + "』を『" + message + "』にリネームしました。");
+                    player.sendMessage(ChatColor.GREEN + Messages.renameSuccess(playerId, oldName, message));
                     openCheckpointMenu(player, menuPages.getOrDefault(playerId, 0));
                 }
                 case OLD_NOT_FOUND -> {
-                    player.sendMessage(ChatColor.RED + "CP『" + oldName + "』が見つかりませんでした。");
+                    player.sendMessage(ChatColor.RED + Messages.renameNotFound(playerId, oldName));
                     openCheckpointMenu(player, menuPages.getOrDefault(playerId, 0));
                 }
                 case NEW_ALREADY_EXISTS -> {
-                    player.sendMessage(ChatColor.RED + "CP『" + message + "』は既に存在します。再入力してください。");
+                    player.sendMessage(ChatColor.RED + Messages.renameExists(playerId, message));
                     awaitingRenameInput.put(playerId, oldName);
-                    player.sendMessage(ChatColor.GRAY + "  新しいCP名を入力 / 『cancel』でキャンセル");
+                    player.sendMessage(ChatColor.GRAY + Messages.renameRetryHint(playerId));
                 }
             }
         });
@@ -714,19 +722,19 @@ public class MenuManager {
         if (!awaitingSearchInput.remove(playerId)) return false;
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (message.equalsIgnoreCase("cancel")) {
-                player.sendMessage(ChatColor.GRAY + "検索をキャンセルしました。");
+                player.sendMessage(ChatColor.GRAY + Messages.searchCancelled(playerId));
                 openCheckpointMenu(player, menuPages.getOrDefault(playerId, 0));
                 return;
             }
             if (message.equalsIgnoreCase("clear")) {
                 playerSearchQuery.remove(playerId);
-                player.sendMessage(ChatColor.GREEN + "検索を解除しました。");
+                player.sendMessage(ChatColor.GREEN + Messages.searchCleared(playerId));
                 menuPages.put(playerId, 0);
                 openCheckpointMenu(player, 0);
                 return;
             }
             playerSearchQuery.put(playerId, message);
-            player.sendMessage(ChatColor.GREEN + "「" + message + "」で検索中...");
+            player.sendMessage(ChatColor.GREEN + Messages.searchSearching(playerId, message));
             menuPages.put(playerId, 0);
             openCheckpointMenu(player, 0);
         });
@@ -738,42 +746,45 @@ public class MenuManager {
     // -----------------------------------------------------------------------
 
     public void startSearchInput(Player player) {
-        awaitingSearchInput.add(player.getUniqueId());
+        UUID playerId = player.getUniqueId();
+        awaitingSearchInput.add(playerId);
         player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
         player.closeInventory();
         player.sendMessage("");
         player.sendMessage(ChatColor.YELLOW + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        player.sendMessage(ChatColor.AQUA + "  チェックポイント検索");
-        player.sendMessage(ChatColor.YELLOW + "  検索したいCP名をチャットに入力してください。");
+        player.sendMessage(ChatColor.AQUA + "  " + Messages.searchPromptTitle(playerId));
+        player.sendMessage(ChatColor.YELLOW + "  " + Messages.searchPromptMsg(playerId));
         player.sendMessage(ChatColor.GRAY + "  「" + ChatColor.RED + "cancel"
-            + ChatColor.GRAY + "」で取消");
+            + ChatColor.GRAY + "」" + Messages.searchCancel(playerId));
         player.sendMessage(ChatColor.YELLOW + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         player.sendMessage("");
     }
 
     public void startRenameInput(Player viewer, String oldName) {
-        awaitingRenameInput.put(viewer.getUniqueId(), oldName);
+        UUID playerId = viewer.getUniqueId();
+        awaitingRenameInput.put(playerId, oldName);
         viewer.closeInventory();
         viewer.sendMessage("");
         viewer.sendMessage(ChatColor.YELLOW + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        viewer.sendMessage(ChatColor.AQUA + "  CP リネーム: " + ChatColor.GOLD + oldName);
-        viewer.sendMessage(ChatColor.YELLOW + "  新しいCP名をチャットに入力してください。");
+        viewer.sendMessage(ChatColor.AQUA + "  " + Messages.renamePromptTitle(playerId, oldName));
+        viewer.sendMessage(ChatColor.YELLOW + "  " + Messages.renamePromptMsg(playerId));
         viewer.sendMessage(ChatColor.GRAY + "  『" + ChatColor.RED + "cancel"
-            + ChatColor.GRAY + "』でキャンセル");
+            + ChatColor.GRAY + "』" + Messages.renameCancelWord(playerId));
         viewer.sendMessage(ChatColor.YELLOW + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         viewer.sendMessage("");
     }
 
     public void startDescriptionInput(Player viewer, String cpName) {
-        awaitingDescriptionInput.put(viewer.getUniqueId(), cpName);
+        UUID playerId = viewer.getUniqueId();
+        awaitingDescriptionInput.put(playerId, cpName);
         viewer.closeInventory();
         viewer.sendMessage("");
         viewer.sendMessage(ChatColor.YELLOW + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        viewer.sendMessage(ChatColor.AQUA + "  CP 説明の変更: " + ChatColor.GOLD + cpName);
-        viewer.sendMessage(ChatColor.YELLOW + "  説明文をチャットに入力してください。");
+        viewer.sendMessage(ChatColor.AQUA + "  " + Messages.descPromptTitle(playerId, cpName));
+        viewer.sendMessage(ChatColor.YELLOW + "  " + Messages.descPromptMsg(playerId));
         viewer.sendMessage(ChatColor.GRAY + "  『" + ChatColor.RED + "clear"
-            + ChatColor.GRAY + "』で説明を削除、『" + ChatColor.RED + "cancel"
-            + ChatColor.GRAY + "』でキャンセル");
+            + ChatColor.GRAY + "』" + Messages.descClearWord(playerId) + "、『" + ChatColor.RED + "cancel"
+            + ChatColor.GRAY + "』" + Messages.descCancelWord(playerId));
         viewer.sendMessage(ChatColor.YELLOW + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         viewer.sendMessage("");
     }
@@ -786,19 +797,19 @@ public class MenuManager {
         if (!awaitingPlayerSearchInput.remove(playerId)) return false;
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (message.equalsIgnoreCase("cancel")) {
-                player.sendMessage(ChatColor.GRAY + "検索をキャンセルしました。");
+                player.sendMessage(ChatColor.GRAY + Messages.searchCancelled(playerId));
                 openPlayerSelectMenu(player);
                 return;
             }
             if (message.equalsIgnoreCase("clear")) {
                 playerSelectSearchQuery.remove(playerId);
-                player.sendMessage(ChatColor.GREEN + "検索を解除しました。");
+                player.sendMessage(ChatColor.GREEN + Messages.searchCleared(playerId));
                 playerSelectPages.put(playerId, 0);
                 openPlayerSelectMenu(player);
                 return;
             }
             playerSelectSearchQuery.put(playerId, message);
-            player.sendMessage(ChatColor.GREEN + "「" + message + "」で検索中...");
+            player.sendMessage(ChatColor.GREEN + Messages.searchSearching(playerId, message));
             playerSelectPages.put(playerId, 0);
             openPlayerSelectMenu(player);
         });
@@ -806,15 +817,16 @@ public class MenuManager {
     }
 
     public void startPlayerSearchInput(Player player) {
-        awaitingPlayerSearchInput.add(player.getUniqueId());
+        UUID playerId = player.getUniqueId();
+        awaitingPlayerSearchInput.add(playerId);
         player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
         player.closeInventory();
         player.sendMessage("");
         player.sendMessage(ChatColor.YELLOW + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        player.sendMessage(ChatColor.AQUA + "  プレイヤー検索");
-        player.sendMessage(ChatColor.YELLOW + "  検索したいプレイヤー名をチャットに入力してください。");
+        player.sendMessage(ChatColor.AQUA + "  " + Messages.playerSearchTitle(playerId));
+        player.sendMessage(ChatColor.YELLOW + "  " + Messages.playerSearchMsg(playerId));
         player.sendMessage(ChatColor.GRAY + "  「" + ChatColor.RED + "cancel"
-            + ChatColor.GRAY + "」で取消");
+            + ChatColor.GRAY + "」" + Messages.searchCancel(playerId));
         player.sendMessage(ChatColor.YELLOW + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         player.sendMessage("");
     }
@@ -824,16 +836,17 @@ public class MenuManager {
     // -----------------------------------------------------------------------
 
     public void executeTeleportToCp(Player viewer, UUID targetId, String cpName) {
+        UUID viewerId = viewer.getUniqueId();
         Optional<Checkpoint> cpOpt = checkpointManager.getNamedCheckpoint(targetId, cpName);
         if (cpOpt.isEmpty()) {
-            viewer.sendMessage(ChatColor.RED + "CPが見つかりません。");
+            viewer.sendMessage(ChatColor.RED + Messages.cpNotFound(viewerId));
             viewer.closeInventory();
             return;
         }
         Checkpoint checkpoint = cpOpt.get();
         World world = Bukkit.getWorld(checkpoint.worldName());
         if (world == null) {
-            viewer.sendMessage(ChatColor.RED + "チェックポイントのワールドが見つかりませんでした。");
+            viewer.sendMessage(ChatColor.RED + Messages.worldNotFound(viewerId));
             viewer.closeInventory();
             return;
         }
@@ -848,24 +861,24 @@ public class MenuManager {
     }
 
     private void executeUpdateCp(Player viewer, String cpName) {
+        UUID viewerId = viewer.getUniqueId();
         Location location = viewer.getLocation();
         World world = location.getWorld();
         if (world == null) {
-            viewer.sendMessage(ChatColor.RED + "ワールド情報が取得できませんでした。");
+            viewer.sendMessage(ChatColor.RED + Messages.cmdWorldError(viewerId));
             return;
         }
         Checkpoint updated = new Checkpoint(world.getName(),
             location.getX(), location.getY(), location.getZ(),
             location.getYaw(), location.getPitch());
-        UUID viewerId = viewer.getUniqueId();
         boolean success = checkpointManager.updateNamedCheckpoint(viewerId, cpName, updated);
         viewer.closeInventory();
         if (success) {
-            viewer.sendMessage(ChatColor.GREEN + "チェックポイント『" + cpName + "』を現在地に更新しました。");
+            viewer.sendMessage(ChatColor.GREEN + Messages.cpUpdateSuccess(viewerId, cpName));
             viewer.playSound(viewer.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
             openCheckpointMenu(viewer, menuPages.getOrDefault(viewerId, 0));
         } else {
-            viewer.sendMessage(ChatColor.RED + "更新に失敗しました。");
+            viewer.sendMessage(ChatColor.RED + Messages.cpUpdateFailed(viewerId));
         }
     }
 
@@ -875,33 +888,33 @@ public class MenuManager {
         notifyNamedCheckpointDeleted(viewerId, cpName);
         viewer.closeInventory();
         if (success) {
-            viewer.sendMessage(ChatColor.GREEN + "チェックポイント『" + cpName + "』を削除しました。");
+            viewer.sendMessage(ChatColor.GREEN + Messages.cpDeleteSuccess(viewerId, cpName));
             viewer.playSound(viewer.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
             openCheckpointMenu(viewer, Math.max(0, menuPages.getOrDefault(viewerId, 0) - 1));
         } else {
-            viewer.sendMessage(ChatColor.RED + "削除に失敗しました。");
+            viewer.sendMessage(ChatColor.RED + Messages.cpDeleteFailed(viewerId));
         }
     }
 
     private void executeCloneCp(Player viewer, UUID targetId, String cpName) {
+        UUID viewerId = viewer.getUniqueId();
         Optional<Checkpoint> cpOpt = checkpointManager.getNamedCheckpoint(targetId, cpName);
         if (cpOpt.isEmpty()) {
-            viewer.sendMessage(ChatColor.RED + "CPが見つかりません。");
+            viewer.sendMessage(ChatColor.RED + Messages.cpNotFound(viewerId));
             viewer.closeInventory();
             return;
         }
         Checkpoint src = cpOpt.get();
         Checkpoint cloned = new Checkpoint(src.worldName(),
             src.x(), src.y(), src.z(), src.yaw(), src.pitch());
-        boolean success = checkpointManager.addNamedCheckpoint(
-            viewer.getUniqueId(), cpName, cloned);
+        boolean success = checkpointManager.addNamedCheckpoint(viewerId, cpName, cloned);
         viewer.closeInventory();
         if (success) {
-            checkpointManager.recordClone(viewer.getUniqueId(), targetId);
-            viewer.sendMessage(ChatColor.GREEN + "チェックポイント『" + cpName + "』をクローンしました。");
+            checkpointManager.recordClone(viewerId, targetId);
+            viewer.sendMessage(ChatColor.GREEN + Messages.cpCloneSuccess(viewerId, cpName));
             viewer.playSound(viewer.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
         } else {
-            viewer.sendMessage(ChatColor.YELLOW + "同名のCPが既に存在します: 『" + cpName + "』");
+            viewer.sendMessage(ChatColor.YELLOW + Messages.cpCloneDuplicate(viewerId, cpName));
         }
     }
 
@@ -1011,7 +1024,7 @@ public class MenuManager {
 
     private void attemptTeleport(Player player, Location destination, int attemptsRemaining) {
         if (attemptsRemaining <= 0) {
-            player.sendMessage(ChatColor.RED + "テレポートに失敗しました。");
+            player.sendMessage(ChatColor.RED + Messages.teleportFailed(player.getUniqueId()));
             return;
         }
         boolean success = player.teleport(destination, PlayerTeleportEvent.TeleportCause.PLUGIN);

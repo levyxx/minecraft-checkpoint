@@ -1,5 +1,5 @@
 name: CheckpointPlugin
-version: 1.5.0
+version: 1.6.0
 main: checkpoint.CheckpointPlugin
 api-version: '1.20'
 author: levyxx
@@ -14,4 +14,5 @@ commands:
       /cp rename <old-name> <new-name>
       /cp description <name> <description>
       /cp items
+      /cp language <jp|en>
       /cp help

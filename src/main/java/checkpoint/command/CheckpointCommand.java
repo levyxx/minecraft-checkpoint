@@ -1,6 +1,8 @@
 package checkpoint.command;
 
 import checkpoint.CheckpointPlugin;
+import checkpoint.i18n.Messages;
+import checkpoint.i18n.Messages.Lang;
 import checkpoint.manager.CheckpointManager;
 import checkpoint.model.Checkpoint;
 import checkpoint.model.RenameResult;
@@ -31,27 +33,28 @@ public class CheckpointCommand implements TabExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(ChatColor.RED + "このコマンドはプレイヤーのみ使用できます。");
+            sender.sendMessage(ChatColor.RED + "This command can only be used by players.");
             return true;
         }
 
+        UUID playerId = player.getUniqueId();
+
         if (args.length == 0) {
-            sendUsage(sender, label);
+            sendUsage(player, playerId, label);
             return true;
         }
 
         String subCommand = args[0].toLowerCase(Locale.ROOT);
-        UUID playerId = player.getUniqueId();
 
         switch (subCommand) {
             case "set" -> {
                 if (args.length < 2) {
-                    sender.sendMessage(ChatColor.RED + "チェックポイント名を入力してください。");
+                    player.sendMessage(ChatColor.RED + Messages.cmdEnterCpName(playerId));
                     return true;
                 }
                 String name = args[1].trim();
                 if (name.isEmpty()) {
-                    sender.sendMessage(ChatColor.RED + "チェックポイント名を入力してください。");
+                    player.sendMessage(ChatColor.RED + Messages.cmdEnterCpName(playerId));
                     return true;
                 }
                 String desc = args.length >= 3
@@ -62,7 +65,7 @@ public class CheckpointCommand implements TabExecutor {
             case "update" -> {
                 String name = extractName(args);
                 if (name == null) {
-                    sender.sendMessage(ChatColor.RED + "チェックポイント名を入力してください。");
+                    player.sendMessage(ChatColor.RED + Messages.cmdEnterCpName(playerId));
                     return true;
                 }
                 handleUpdate(player, playerId, name);
@@ -70,21 +73,21 @@ public class CheckpointCommand implements TabExecutor {
             case "delete" -> {
                 String name = extractName(args);
                 if (name == null) {
-                    sender.sendMessage(ChatColor.RED + "チェックポイント名を入力してください。");
+                    player.sendMessage(ChatColor.RED + Messages.cmdEnterCpName(playerId));
                     return true;
                 }
                 handleDelete(player, playerId, name);
             }
             case "rename" -> {
                 if (args.length < 3) {
-                    sender.sendMessage(ChatColor.RED + "使い方: /" + label + " rename <元のCP名> <変更後のCP名>");
+                    player.sendMessage(ChatColor.RED + Messages.cmdUsageRename(playerId, label));
                     return true;
                 }
                 handleRename(player, playerId, args[1], args[2]);
             }
             case "description" -> {
                 if (args.length < 3) {
-                    sender.sendMessage(ChatColor.RED + "使い方: /" + label + " description <CP名> <説明>");
+                    player.sendMessage(ChatColor.RED + Messages.cmdUsageDesc(playerId, label));
                     return true;
                 }
                 String name = args[1].trim();
@@ -92,8 +95,15 @@ public class CheckpointCommand implements TabExecutor {
                 handleDescription(player, playerId, name, desc);
             }
             case "items" -> plugin.giveCheckpointItems(player);
-            case "help" -> sendHelp(sender, label);
-            default -> sendUsage(sender, label);
+            case "language", "lang" -> {
+                if (args.length < 2) {
+                    player.sendMessage(ChatColor.RED + Messages.cmdUsageLanguage(playerId, label));
+                    return true;
+                }
+                handleLanguage(player, playerId, args[1]);
+            }
+            case "help" -> sendHelp(player, playerId, label);
+            default -> sendUsage(player, playerId, label);
         }
         return true;
     }
@@ -110,7 +120,7 @@ public class CheckpointCommand implements TabExecutor {
         Location location = player.getLocation();
         World world = location.getWorld();
         if (world == null) {
-            player.sendMessage(ChatColor.RED + "ワールド情報が取得できませんでした。");
+            player.sendMessage(ChatColor.RED + Messages.cmdWorldError(playerId));
             return;
         }
 
@@ -135,10 +145,10 @@ public class CheckpointCommand implements TabExecutor {
             if (!description.isEmpty()) {
                 checkpointManager.setNamedCheckpointDescription(playerId, name, description);
             }
-            player.sendMessage(ChatColor.GREEN + "チェックポイント『" + name + "』を保存しました。");
+            player.sendMessage(ChatColor.GREEN + Messages.cmdSetSuccess(playerId, name));
             plugin.notifyNamedCheckpointSet(player, name);
         } else {
-            player.sendMessage(ChatColor.RED + "チェックポイント『" + name + "』は既に存在します。");
+            player.sendMessage(ChatColor.RED + Messages.cmdSetDuplicate(playerId, name));
         }
     }
 
@@ -151,9 +161,9 @@ public class CheckpointCommand implements TabExecutor {
             return;
         }
         if (success) {
-            player.sendMessage(ChatColor.GREEN + "『" + name + "』の説明を設定しました。");
+            player.sendMessage(ChatColor.GREEN + Messages.cmdDescSuccess(playerId, name));
         } else {
-            player.sendMessage(ChatColor.RED + "チェックポイント『" + name + "』が見つかりませんでした。");
+            player.sendMessage(ChatColor.RED + Messages.cmdDescNotFound(playerId, name));
         }
     }
 
@@ -161,7 +171,7 @@ public class CheckpointCommand implements TabExecutor {
         Location location = player.getLocation();
         World world = location.getWorld();
         if (world == null) {
-            player.sendMessage(ChatColor.RED + "ワールド情報が取得できませんでした。");
+            player.sendMessage(ChatColor.RED + Messages.cmdWorldError(playerId));
             return;
         }
 
@@ -183,10 +193,10 @@ public class CheckpointCommand implements TabExecutor {
         }
 
         if (updated) {
-            player.sendMessage(ChatColor.GREEN + "チェックポイント『" + name + "』を更新しました。");
+            player.sendMessage(ChatColor.GREEN + Messages.cmdUpdateSuccess(playerId, name));
             plugin.notifyNamedCheckpointSet(player, name);
         } else {
-            player.sendMessage(ChatColor.RED + "チェックポイント『" + name + "』は存在しません。");
+            player.sendMessage(ChatColor.RED + Messages.cmdUpdateNotFound(playerId, name));
         }
     }
 
@@ -200,10 +210,10 @@ public class CheckpointCommand implements TabExecutor {
         }
 
         if (removed) {
-            player.sendMessage(ChatColor.GREEN + "チェックポイント『" + name + "』を削除しました。");
+            player.sendMessage(ChatColor.GREEN + Messages.cmdDeleteSuccess(playerId, name));
             plugin.notifyNamedCheckpointDeleted(playerId, name);
         } else {
-            player.sendMessage(ChatColor.RED + "チェックポイント『" + name + "』は見つかりませんでした。");
+            player.sendMessage(ChatColor.RED + Messages.cmdDeleteNotFound(playerId, name));
         }
     }
 
@@ -218,38 +228,45 @@ public class CheckpointCommand implements TabExecutor {
 
         switch (result) {
             case SUCCESS -> player.sendMessage(ChatColor.GREEN
-                + "チェックポイント『" + oldName + "』を『" + newName + "』に変更しました。");
+                + Messages.cmdRenameSuccess(playerId, oldName, newName));
             case OLD_NOT_FOUND -> player.sendMessage(ChatColor.RED
-                + "チェックポイント『" + oldName + "』は見つかりませんでした。");
+                + Messages.cmdRenameOldNotFound(playerId, oldName));
             case NEW_ALREADY_EXISTS -> player.sendMessage(ChatColor.RED
-                + "チェックポイント『" + newName + "』は既に存在します。");
+                + Messages.cmdRenameNewExists(playerId, newName));
         }
     }
 
-    private void sendUsage(CommandSender sender, String label) {
-        sender.sendMessage(ChatColor.YELLOW + "使い方: /" + label + " <set|update|delete|rename|description|items|help>");
+    private void handleLanguage(Player player, UUID playerId, String langArg) {
+        String lower = langArg.toLowerCase(Locale.ROOT);
+        if ("jp".equals(lower) || "ja".equals(lower)) {
+            Messages.setLang(playerId, Lang.JP);
+        } else if ("en".equals(lower)) {
+            Messages.setLang(playerId, Lang.EN);
+        } else {
+            player.sendMessage(ChatColor.RED + Messages.cmdUsageLanguage(playerId, "cp"));
+            return;
+        }
+        player.sendMessage(ChatColor.GREEN + Messages.cmdLangChanged(playerId));
     }
 
-    private void sendHelp(CommandSender sender, String label) {
+    private void sendUsage(Player player, UUID playerId, String label) {
+        player.sendMessage(ChatColor.YELLOW + Messages.cmdUsage(playerId, label));
+    }
+
+    private void sendHelp(Player player, UUID playerId, String label) {
         String l = label;
-        sender.sendMessage(ChatColor.DARK_AQUA + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        sender.sendMessage(ChatColor.AQUA + "  /" + l + " コマンド一覧");
-        sender.sendMessage(ChatColor.DARK_AQUA + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        sender.sendMessage(ChatColor.YELLOW + "/" + l + " set <名前> [説明]"
-            + ChatColor.GRAY + "  現在地を指定した名前で保存します（説明は省略可）");
-        sender.sendMessage(ChatColor.YELLOW + "/" + l + " update <名前>"
-            + ChatColor.GRAY + "  既存CPの座標を現在地で上書きします");
-        sender.sendMessage(ChatColor.YELLOW + "/" + l + " delete <名前>"
-            + ChatColor.GRAY + "  指定したCPを削除します");
-        sender.sendMessage(ChatColor.YELLOW + "/" + l + " rename <元の名前> <新しい名前>"
-            + ChatColor.GRAY + "  CPの名前を変更します");
-        sender.sendMessage(ChatColor.YELLOW + "/" + l + " description <名前> <説明>"
-            + ChatColor.GRAY + "  CPに説明を設定します");
-        sender.sendMessage(ChatColor.YELLOW + "/" + l + " items"
-            + ChatColor.GRAY + "  チェックポイント用アイテムを受け取ります");
-        sender.sendMessage(ChatColor.YELLOW + "/" + l + " help"
-            + ChatColor.GRAY + "  このヘルプを表示します");
-        sender.sendMessage(ChatColor.DARK_AQUA + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        player.sendMessage(ChatColor.DARK_AQUA + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        player.sendMessage(ChatColor.AQUA + "  /" + l + " " + Messages.helpTitle(playerId));
+        player.sendMessage(ChatColor.DARK_AQUA + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        player.sendMessage(Messages.helpSet(playerId, l));
+        player.sendMessage(Messages.helpUpdate(playerId, l));
+        player.sendMessage(Messages.helpDelete(playerId, l));
+        player.sendMessage(Messages.helpRename(playerId, l));
+        player.sendMessage(Messages.helpDescription(playerId, l));
+        player.sendMessage(Messages.helpItems(playerId, l));
+        player.sendMessage(Messages.helpLanguage(playerId, l));
+        player.sendMessage(Messages.helpHelp(playerId, l));
+        player.sendMessage(ChatColor.DARK_AQUA + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
 
     @Override
@@ -259,8 +276,14 @@ public class CheckpointCommand implements TabExecutor {
         }
 
         if (args.length == 1) {
-            return List.of("set", "update", "delete", "rename", "description", "items", "help").stream()
+            return List.of("set", "update", "delete", "rename", "description", "items", "language", "help").stream()
                 .filter(opt -> opt.startsWith(args[0].toLowerCase(Locale.ROOT)))
+                .collect(Collectors.toList());
+        }
+
+        if (args.length == 2 && ("language".equalsIgnoreCase(args[0]) || "lang".equalsIgnoreCase(args[0]))) {
+            return List.of("jp", "en").stream()
+                .filter(opt -> opt.startsWith(args[1].toLowerCase(Locale.ROOT)))
                 .collect(Collectors.toList());
         }
 

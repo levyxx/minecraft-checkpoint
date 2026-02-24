@@ -2,6 +2,7 @@ package checkpoint;
 
 import checkpoint.command.CheckpointCommand;
 import checkpoint.gui.MenuManager;
+import checkpoint.i18n.Messages;
 import checkpoint.listener.ChatInputListener;
 import checkpoint.listener.InventoryClickListener;
 import checkpoint.listener.PlayerListener;
@@ -56,6 +57,7 @@ public class CheckpointPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         menuManager.clearAll();
+        Messages.clearAll();
         this.checkpointManager = null;
         getLogger().info("Checkpoint plugin disabled.");
     }
@@ -77,22 +79,27 @@ public class CheckpointPlugin extends JavaPlugin {
     // -----------------------------------------------------------------------
 
     public void giveCheckpointItems(Player player) {
+        UUID playerId = player.getUniqueId();
+
+        // Detect and set language from client locale if not already set
+        initPlayerLang(player);
+
         ItemStack netherStar = createUtilityItem(
             Material.NETHER_STAR, ChatColor.AQUA, "CheckPoint",
-            List.of(ChatColor.GRAY + "左クリック: チェックポイント一覧",
-                    ChatColor.GRAY + "右クリック: テレポート"));
+            List.of(ChatColor.GRAY + Messages.itemNetherStarLoreL(playerId),
+                    ChatColor.GRAY + Messages.itemNetherStarLoreR(playerId)));
 
         ItemStack slimeBall = createUtilityItem(
             Material.SLIME_BALL, ChatColor.GREEN, "Set CheckPoint",
-            List.of(ChatColor.GRAY + "右クリック: 現在地を保存"));
+            List.of(ChatColor.GRAY + Messages.itemSlimeLore(playerId)));
 
         ItemStack feather = createUtilityItem(
             Material.FEATHER, ChatColor.GOLD, "Change Gamemode",
-            List.of(ChatColor.GRAY + "右クリック: クリエ/アドベンチャー切替"));
+            List.of(ChatColor.GRAY + Messages.itemFeatherLore(playerId)));
 
         ItemStack heart = createUtilityItem(
             Material.HEART_OF_THE_SEA, ChatColor.LIGHT_PURPLE, "CheckPoint List",
-            List.of(ChatColor.GRAY + "右クリック: チェックポイント一覧"));
+            List.of(ChatColor.GRAY + Messages.itemHeartLore(playerId)));
 
         Map<Integer, ItemStack> leftovers = player.getInventory().addItem(netherStar, slimeBall, feather, heart);
         if (!leftovers.isEmpty()) {
@@ -100,8 +107,17 @@ public class CheckpointPlugin extends JavaPlugin {
                 player.getWorld().dropItemNaturally(player.getLocation(), stack));
         }
 
-        player.sendMessage(ChatColor.AQUA + "チェックポイントアイテムを受け取りました。所持品を確認してください。");
+        player.sendMessage(ChatColor.AQUA + Messages.itemsReceived(playerId));
         player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 0.7f, 1.1f);
+    }
+
+    /**
+     * Initialize player language from Minecraft client locale if not already set.
+     */
+    public void initPlayerLang(Player player) {
+        UUID playerId = player.getUniqueId();
+        // Only auto-detect if no preference was manually set
+        Messages.setLang(playerId, Messages.detectLang(player.getLocale()));
     }
 
     private ItemStack createUtilityItem(Material material, ChatColor color,

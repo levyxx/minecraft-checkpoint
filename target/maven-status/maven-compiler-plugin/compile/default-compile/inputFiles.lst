@@ -4,6 +4,7 @@
 /home/user/minecraft/minecraft-checkpoint/src/main/java/checkpoint/listener/ChatInputListener.java
 /home/user/minecraft/minecraft-checkpoint/src/main/java/checkpoint/CheckpointPlugin.java
 /home/user/minecraft/minecraft-checkpoint/src/main/java/checkpoint/gui/ItemFactory.java
+/home/user/minecraft/minecraft-checkpoint/src/main/java/checkpoint/i18n/Messages.java
 /home/user/minecraft/minecraft-checkpoint/src/main/java/checkpoint/manager/CheckpointManager.java
 /home/user/minecraft/minecraft-checkpoint/src/main/java/checkpoint/listener/PlayerListener.java
 /home/user/minecraft/minecraft-checkpoint/src/main/java/checkpoint/gui/MenuManager.java

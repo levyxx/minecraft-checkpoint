@@ -1,6 +1,7 @@
 package checkpoint.gui;
 
 import java.time.format.DateTimeFormatter;
+import java.util.Set;
 import org.bukkit.ChatColor;
 
 /**
@@ -17,11 +18,33 @@ public final class GuiConstants {
     public static final int SLOT_NEXT      = 53;
     public static final int SLOT_PLAYER_HEAD = 4;
 
-    public static final String GUI_TITLE            = ChatColor.DARK_AQUA + "チェックポイント一覧";
-    public static final String SORT_TITLE           = ChatColor.DARK_AQUA + "ソート方法を選択";
-    public static final String PLAYER_SELECT_TITLE  = ChatColor.DARK_AQUA + "プレイヤーを選択";
-    public static final String CP_OPERATION_TITLE   = ChatColor.DARK_AQUA + "CP操作";
-    public static final String PLAYER_SORT_TITLE    = ChatColor.DARK_AQUA + "プレイヤーのソート方法を選択";
+    // Title sets for matching (both JP and EN)
+    private static final Set<String> GUI_TITLES = Set.of(
+        ChatColor.DARK_AQUA + "チェックポイント一覧",
+        ChatColor.DARK_AQUA + "Checkpoint List");
+    private static final Set<String> SORT_TITLES = Set.of(
+        ChatColor.DARK_AQUA + "ソート方法を選択",
+        ChatColor.DARK_AQUA + "Select Sort Order");
+    private static final Set<String> PLAYER_SELECT_TITLES = Set.of(
+        ChatColor.DARK_AQUA + "プレイヤーを選択",
+        ChatColor.DARK_AQUA + "Select Player");
+    private static final Set<String> CP_OPERATION_TITLES = Set.of(
+        ChatColor.DARK_AQUA + "CP操作",
+        ChatColor.DARK_AQUA + "CP Operations");
+    private static final Set<String> PLAYER_SORT_TITLES = Set.of(
+        ChatColor.DARK_AQUA + "プレイヤーのソート方法を選択",
+        ChatColor.DARK_AQUA + "Select Player Sort Order");
+
+    public static boolean isGuiTitle(String title)            { return GUI_TITLES.contains(title); }
+    public static boolean isSortTitle(String title)           { return SORT_TITLES.contains(title); }
+    public static boolean isPlayerSelectTitle(String title)   { return PLAYER_SELECT_TITLES.contains(title); }
+    public static boolean isCpOperationTitle(String title)    { return CP_OPERATION_TITLES.contains(title); }
+    public static boolean isPlayerSortTitle(String title)     { return PLAYER_SORT_TITLES.contains(title); }
+
+    public static boolean isOurMenu(String title) {
+        return isGuiTitle(title) || isSortTitle(title) || isPlayerSelectTitle(title)
+            || isCpOperationTitle(title) || isPlayerSortTitle(title);
+    }
 
     public static final DateTimeFormatter CP_DATE_FMT =
         DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm");

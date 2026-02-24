@@ -1,5 +1,8 @@
 checkpoint/listener/PlayerListener.class
+checkpoint/i18n/Messages$Lang.class
+checkpoint/i18n/Messages.class
 checkpoint/gui/MenuManager$1.class
+checkpoint/i18n/Messages$1.class
 checkpoint/model/PlayerSortOrder.class
 checkpoint/gui/MenuManager$SelectionType.class
 checkpoint/manager/CheckpointManager.class

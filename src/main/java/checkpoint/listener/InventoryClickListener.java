@@ -24,19 +24,19 @@ public class InventoryClickListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         String title = event.getView().getTitle();
 
-        if (GuiConstants.SORT_TITLE.equals(title)) {
+        if (GuiConstants.isSortTitle(title)) {
             event.setCancelled(true);
             menuManager.handleSortMenuClick(player, event.getRawSlot());
-        } else if (GuiConstants.PLAYER_SELECT_TITLE.equals(title)) {
+        } else if (GuiConstants.isPlayerSelectTitle(title)) {
             event.setCancelled(true);
             menuManager.handlePlayerSelectMenuClick(player, event);
-        } else if (GuiConstants.PLAYER_SORT_TITLE.equals(title)) {
+        } else if (GuiConstants.isPlayerSortTitle(title)) {
             event.setCancelled(true);
             menuManager.handlePlayerSortMenuClick(player, event.getRawSlot());
-        } else if (GuiConstants.CP_OPERATION_TITLE.equals(title)) {
+        } else if (GuiConstants.isCpOperationTitle(title)) {
             event.setCancelled(true);
             menuManager.handleCpOperationMenuClick(player, event.getRawSlot());
-        } else if (GuiConstants.GUI_TITLE.equals(title)) {
+        } else if (GuiConstants.isGuiTitle(title)) {
             if (event.getClickedInventory() == null) return;
             event.setCancelled(true);
             menuManager.handleMainMenuClick(player, event);
