@@ -250,7 +250,7 @@ public class CheckpointCommand implements TabExecutor {
     }
 
     private void sendUsage(Player player, UUID playerId, String label) {
-        player.sendMessage(ChatColor.YELLOW + Messages.cmdUsage(playerId, label));
+        player.sendMessage(ChatColor.GRAY + Messages.cmdUsage(playerId, label));
     }
 
     private void sendHelp(Player player, UUID playerId, String label) {

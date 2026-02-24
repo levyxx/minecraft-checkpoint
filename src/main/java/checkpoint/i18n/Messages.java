@@ -59,8 +59,8 @@ public final class Messages {
     public static String cmdUsageDesc(UUID id, String l)   { return get(id, "使い方: /" + l + " description <CP名> <説明>", "Usage: /" + l + " description <name> <description>"); }
     public static String cmdUsageLanguage(UUID id, String l) { return get(id, "使い方: /" + l + " language <jp|en>", "Usage: /" + l + " language <jp|en>"); }
     public static String cmdUsage(UUID id, String l) { return get(id,
-        "使い方: /" + l + " <set|update|delete|rename|description|items|language|help>",
-        "Usage: /" + l + " <set|update|delete|rename|description|items|language|help>"); }
+        "/" + l + " help" + " でコマンド一覧を確認できます。",
+        "Run /" + l + " help to see available commands."); }
 
     public static String cmdWorldError(UUID id)    { return get(id, "ワールド情報が取得できませんでした。", "Could not get world information."); }
 
