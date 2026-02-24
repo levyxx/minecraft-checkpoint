@@ -2,6 +2,9 @@ package io.github.levyxx.checkpoint;
 
 import io.github.levyxx.checkpoint.CheckpointManager.Checkpoint;
 import io.github.levyxx.checkpoint.CheckpointManager.SortOrder;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -59,6 +62,9 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
     private static final String PLAYER_SELECT_TITLE  = ChatColor.DARK_AQUA + "プレイヤーを選択";
     private static final String CP_OPERATION_TITLE   = ChatColor.DARK_AQUA + "CP操作";
     private static final int    SLOT_PLAYER_HEAD     = 4;
+
+    private static final DateTimeFormatter CP_DATE_FMT =
+        DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm");
 
     private static final int TELEPORT_MAX_ATTEMPTS    = 5;
     private static final long TELEPORT_RETRY_DELAY_TICKS = 1L;
@@ -401,15 +407,17 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
             UUID targetId = viewingPlayerId.getOrDefault(viewerId, viewerId);
             boolean isSelf = targetId.equals(viewerId);
             int rawSlot = event.getRawSlot();
-            if (isSelf) {
-                if (rawSlot == 10) executeTeleportToCp(player, targetId, cpName);
-                else if (rawSlot == 12) executeUpdateCp(player, cpName);
-                else if (rawSlot == 14) startRenameInput(player, cpName);
-                else if (rawSlot == 16) executeDeleteCp(player, cpName);
-            } else {
-                if (rawSlot == 11) executeTeleportToCp(player, targetId, cpName);
-                else if (rawSlot == 15) executeCloneCp(player, targetId, cpName);
-            }
+            Bukkit.getScheduler().runTask(this, () -> {
+                if (isSelf) {
+                    if (rawSlot == 10) executeTeleportToCp(player, targetId, cpName);
+                    else if (rawSlot == 12) executeUpdateCp(player, cpName);
+                    else if (rawSlot == 14) startRenameInput(player, cpName);
+                    else if (rawSlot == 16) executeDeleteCp(player, cpName);
+                } else {
+                    if (rawSlot == 11) executeTeleportToCp(player, targetId, cpName);
+                    else if (rawSlot == 15) executeCloneCp(player, targetId, cpName);
+                }
+            });
             return;
         }
 
@@ -761,6 +769,8 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
             lore.add(ChatColor.GRAY + "ワールド: " + checkpoint.worldName());
             lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "X: %.1f Y: %.1f Z: %.1f", checkpoint.x(), checkpoint.y(), checkpoint.z()));
             lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "Yaw: %.1f Pitch: %.1f", checkpoint.yaw(), checkpoint.pitch()));
+            lore.add(ChatColor.GRAY + "作成: " + formatInstant(checkpoint.createdAt()));
+            lore.add(ChatColor.GRAY + "更新: " + formatInstant(checkpoint.updatedAt()));
             lore.add("");
             if (isSelf) {
                 lore.add(selected ? ChatColor.AQUA + "現在選択中"
@@ -1017,12 +1027,13 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
         Checkpoint updated = new Checkpoint(world.getName(),
             location.getX(), location.getY(), location.getZ(),
             location.getYaw(), location.getPitch());
-        boolean success = checkpointManager.updateNamedCheckpoint(
-            viewer.getUniqueId(), cpName, updated);
+        UUID viewerId = viewer.getUniqueId();
+        boolean success = checkpointManager.updateNamedCheckpoint(viewerId, cpName, updated);
         viewer.closeInventory();
         if (success) {
             viewer.sendMessage(ChatColor.GREEN + "チェックポイント『" + cpName + "』を現在地に更新しました。");
             viewer.playSound(viewer.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
+            openCheckpointMenu(viewer, menuPages.getOrDefault(viewerId, 0));
         } else {
             viewer.sendMessage(ChatColor.RED + "更新に失敗しました。");
         }
@@ -1122,11 +1133,17 @@ public class CheckpointPlugin extends JavaPlugin implements Listener {
                     checkpoint.x(), checkpoint.y(), checkpoint.z()),
                 ChatColor.GRAY + String.format(Locale.ROOT,
                     "Yaw: %.1f Pitch: %.1f",
-                    checkpoint.yaw(), checkpoint.pitch())
+                    checkpoint.yaw(), checkpoint.pitch()),
+                ChatColor.GRAY + "作成: " + formatInstant(checkpoint.createdAt()),
+                ChatColor.GRAY + "更新: " + formatInstant(checkpoint.updatedAt())
             ));
             meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
             paper.setItemMeta(meta);
         }
         return paper;
+    }
+
+    private String formatInstant(java.time.Instant instant) {
+        return ZonedDateTime.ofInstant(instant, ZoneId.systemDefault()).format(CP_DATE_FMT);
     }
 }
