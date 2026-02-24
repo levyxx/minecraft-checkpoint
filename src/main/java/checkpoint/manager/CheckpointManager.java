@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -22,6 +23,8 @@ public class CheckpointManager {
     private final Map<UUID, Checkpoint> quickCheckpoints = new ConcurrentHashMap<>();
     private final Map<UUID, Map<String, Checkpoint>> namedCheckpoints = new ConcurrentHashMap<>();
     private final Map<UUID, String> selectedNamedCheckpoints = new ConcurrentHashMap<>();
+    private final Map<UUID, Map<UUID, Instant>> cloneHistory = new ConcurrentHashMap<>();
+    private final Map<UUID, Integer> clonedCounts = new ConcurrentHashMap<>();
 
     // -----------------------------------------------------------------------
     // Sort / Search
@@ -306,6 +309,57 @@ public class CheckpointManager {
             (id, selected) -> selected.equalsIgnoreCase(oldName) ? newName : selected);
 
         return RenameResult.SUCCESS;
+    }
+
+    // -----------------------------------------------------------------------
+    // Clone tracking
+    // -----------------------------------------------------------------------
+
+    public void recordClone(UUID clonerId, UUID sourcePlayerId) {
+        Objects.requireNonNull(clonerId, "clonerId cannot be null");
+        Objects.requireNonNull(sourcePlayerId, "sourcePlayerId cannot be null");
+        cloneHistory.computeIfAbsent(clonerId, k -> new ConcurrentHashMap<>())
+            .put(sourcePlayerId, Instant.now());
+        clonedCounts.merge(sourcePlayerId, 1, Integer::sum);
+    }
+
+    public Optional<Instant> getCloneTime(UUID clonerId, UUID sourcePlayerId) {
+        if (clonerId == null || sourcePlayerId == null) return Optional.empty();
+        Map<UUID, Instant> history = cloneHistory.get(clonerId);
+        if (history == null) return Optional.empty();
+        return Optional.ofNullable(history.get(sourcePlayerId));
+    }
+
+    public int getClonedCount(UUID playerId) {
+        if (playerId == null) return 0;
+        return clonedCounts.getOrDefault(playerId, 0);
+    }
+
+    // -----------------------------------------------------------------------
+    // Player data queries
+    // -----------------------------------------------------------------------
+
+    public Set<UUID> getAllPlayersWithData() {
+        return Set.copyOf(namedCheckpoints.keySet());
+    }
+
+    public Optional<Instant> getLastActivityTime(UUID playerId) {
+        if (playerId == null) return Optional.empty();
+        Map<String, Checkpoint> playerMap = namedCheckpoints.get(playerId);
+        if (playerMap == null || playerMap.isEmpty()) return Optional.empty();
+        return playerMap.values().stream()
+            .map(Checkpoint::updatedAt)
+            .max(Comparator.naturalOrder());
+    }
+
+    public double getNearestCpDistanceSq(UUID playerId, double px, double pz) {
+        if (playerId == null) return Double.MAX_VALUE;
+        Map<String, Checkpoint> playerMap = namedCheckpoints.get(playerId);
+        if (playerMap == null || playerMap.isEmpty()) return Double.MAX_VALUE;
+        return playerMap.values().stream()
+            .mapToDouble(cp -> distanceSq(cp, px, pz))
+            .min()
+            .orElse(Double.MAX_VALUE);
     }
 
     // -----------------------------------------------------------------------

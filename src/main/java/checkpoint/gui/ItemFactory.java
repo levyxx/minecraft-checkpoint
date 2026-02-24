@@ -1,6 +1,7 @@
 package checkpoint.gui;
 
 import checkpoint.model.Checkpoint;
+import checkpoint.model.PlayerSortOrder;
 import checkpoint.model.SortOrder;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -9,12 +10,14 @@ import java.util.List;
 import java.util.Locale;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
+import org.bukkit.persistence.PersistentDataType;
 
 import static checkpoint.gui.GuiConstants.CP_DATE_FMT;
 
@@ -176,11 +179,11 @@ public final class ItemFactory {
         return item;
     }
 
-    public static ItemStack createSortDyeItem(Material dye, SortOrder order, boolean active) {
+    public static ItemStack createSortDyeItem(Material dye, String label, boolean active) {
         ItemStack item = new ItemStack(dye);
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
-            meta.setDisplayName((active ? ChatColor.AQUA : ChatColor.WHITE) + order.label);
+            meta.setDisplayName((active ? ChatColor.AQUA : ChatColor.WHITE) + label);
             List<String> lore = new ArrayList<>();
             if (active) {
                 lore.add(ChatColor.GREEN + "✔ 現在選択中");
@@ -194,6 +197,10 @@ public final class ItemFactory {
             item.setItemMeta(meta);
         }
         return item;
+    }
+
+    public static ItemStack createSortDyeItem(Material dye, SortOrder order, boolean active) {
+        return createSortDyeItem(dye, order.label, active);
     }
 
     // -----------------------------------------------------------------------
@@ -255,6 +262,93 @@ public final class ItemFactory {
             meta.setLore(List.of(
                 ChatColor.GRAY + loreText,
                 ChatColor.YELLOW + "クリックで実行"
+            ));
+            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    // -----------------------------------------------------------------------
+    // Player select menu items
+    // -----------------------------------------------------------------------
+
+    public static ItemStack createPlayerSelectHead(OfflinePlayer target, boolean isSelf,
+            boolean isViewing, int cpCount, String lastCloneStr, int totalClonedCount,
+            double nearestDistance, String lastActivityStr, NamespacedKey uuidKey) {
+        ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+        SkullMeta meta = (SkullMeta) head.getItemMeta();
+        if (meta != null) {
+            meta.setOwningPlayer(target);
+            String name = target.getName() != null ? target.getName() : "不明";
+            meta.setDisplayName((isSelf ? ChatColor.AQUA : ChatColor.YELLOW) + name);
+            List<String> lore = new ArrayList<>();
+            lore.add(ChatColor.GRAY + "CP数: " + cpCount);
+            lore.add(ChatColor.GRAY + "最終クローン: " + (lastCloneStr != null ? lastCloneStr : "なし"));
+            lore.add(ChatColor.GRAY + "被クローン回数: " + totalClonedCount);
+            String distStr = nearestDistance >= 1_000_000 ? "?" : String.format(Locale.ROOT, "%.0f", nearestDistance);
+            lore.add(ChatColor.GRAY + "最寄り距離: " + distStr + " ブロック");
+            lore.add(ChatColor.GRAY + "最終操作: " + (lastActivityStr != null ? lastActivityStr : "なし"));
+            lore.add("");
+            if (isViewing) {
+                lore.add(ChatColor.GREEN + "✔ 現在表示中");
+                meta.addEnchant(Enchantment.LUCK, 1, true);
+                meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+            } else {
+                lore.add(ChatColor.YELLOW + "クリックでCP一覧を表示");
+            }
+            meta.setLore(lore);
+            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            meta.getPersistentDataContainer()
+                .set(uuidKey, PersistentDataType.STRING, target.getUniqueId().toString());
+            head.setItemMeta(meta);
+        }
+        return head;
+    }
+
+    public static ItemStack createPlayerSearchItem() {
+        ItemStack item = new ItemStack(Material.ANVIL);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(ChatColor.WHITE + "プレイヤー名を検索");
+            meta.setLore(List.of(
+                ChatColor.GRAY + "左クリックで検索バーを開く",
+                ChatColor.GRAY + "右クリックで検索を解除",
+                ChatColor.GRAY + "部分一致でフィルタリングします"
+            ));
+            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    public static ItemStack createPlayerInfoItem(int currentPage, int totalPages, int totalPlayers,
+                                                  PlayerSortOrder order, String query) {
+        ItemStack item = new ItemStack(Material.WRITABLE_BOOK);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(ChatColor.AQUA + "ページ情報");
+            List<String> lore = new ArrayList<>();
+            lore.add(ChatColor.GRAY + "ページ: " + currentPage + " / " + totalPages);
+            lore.add(ChatColor.GRAY + "プレイヤー数: " + totalPlayers);
+            lore.add(ChatColor.GRAY + "ソート: " + ChatColor.AQUA + order.label);
+            if (query != null && !query.isBlank()) {
+                lore.add(ChatColor.GRAY + "検索: " + ChatColor.YELLOW + query);
+            }
+            meta.setLore(lore);
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    public static ItemStack createPlayerSortButtonItem(PlayerSortOrder current) {
+        ItemStack item = new ItemStack(Material.SPYGLASS);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(ChatColor.GOLD + "ソート方法を変更");
+            meta.setLore(List.of(
+                ChatColor.GRAY + "現在: " + ChatColor.YELLOW + current.label,
+                ChatColor.YELLOW + "左クリックで選択画面を開く"
             ));
             meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
             item.setItemMeta(meta);

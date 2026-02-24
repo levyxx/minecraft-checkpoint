@@ -2,9 +2,12 @@ package checkpoint.gui;
 
 import checkpoint.manager.CheckpointManager;
 import checkpoint.model.Checkpoint;
+import checkpoint.model.PlayerSortOrder;
 import checkpoint.model.RenameResult;
 import checkpoint.model.SortOrder;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,6 +58,9 @@ public class MenuManager {
     private final Map<UUID, String>         awaitingRenameInput  = new ConcurrentHashMap<>();
     private final Map<UUID, String>         awaitingDescriptionInput = new ConcurrentHashMap<>();
     private final Map<UUID, Integer>        playerSelectPages    = new ConcurrentHashMap<>();
+    private final Map<UUID, PlayerSortOrder> playerSelectSortOrders = new ConcurrentHashMap<>();
+    private final Map<UUID, String>         playerSelectSearchQuery = new ConcurrentHashMap<>();
+    private final Set<UUID>                 awaitingPlayerSearchInput = ConcurrentHashMap.newKeySet();
 
     // ---- Dependencies -----------------------------------------------------
     private final JavaPlugin          plugin;
@@ -82,11 +88,15 @@ public class MenuManager {
         awaitingRenameInput.clear();
         awaitingDescriptionInput.clear();
         playerSelectPages.clear();
+        playerSelectSortOrders.clear();
+        playerSelectSearchQuery.clear();
+        awaitingPlayerSearchInput.clear();
     }
 
     public boolean isOurMenu(String title) {
         return GUI_TITLE.equals(title) || SORT_TITLE.equals(title)
-            || PLAYER_SELECT_TITLE.equals(title) || CP_OPERATION_TITLE.equals(title);
+            || PLAYER_SELECT_TITLE.equals(title) || CP_OPERATION_TITLE.equals(title)
+            || PLAYER_SORT_TITLE.equals(title);
     }
 
     // -----------------------------------------------------------------------
@@ -111,6 +121,10 @@ public class MenuManager {
 
     public boolean isAwaitingSearchInput(UUID playerId) {
         return awaitingSearchInput.contains(playerId);
+    }
+
+    public boolean isAwaitingPlayerSearchInput(UUID playerId) {
+        return awaitingPlayerSearchInput.contains(playerId);
     }
 
     // -----------------------------------------------------------------------
@@ -317,10 +331,16 @@ public class MenuManager {
     }
 
     public void openPlayerSelectMenu(Player viewer) {
-        List<? extends Player> onlineList = new ArrayList<>(Bukkit.getOnlinePlayers());
         UUID viewerId = viewer.getUniqueId();
+        PlayerSortOrder psOrder = playerSelectSortOrders.getOrDefault(viewerId, PlayerSortOrder.NAME_ASC);
+        String psQuery = playerSelectSearchQuery.get(viewerId);
+        double px = viewer.getLocation().getX();
+        double pz = viewer.getLocation().getZ();
+
+        List<UUID> playerList = getSortedFilteredPlayers(viewerId, psOrder, psQuery, px, pz);
+
         int psPage = playerSelectPages.getOrDefault(viewerId, 0);
-        int totalItems = onlineList.size();
+        int totalItems = playerList.size();
         int totalPages = Math.max(1, (int) Math.ceil(totalItems / (double) ITEMS_PER_PAGE));
         psPage = Math.max(0, Math.min(psPage, totalPages - 1));
         playerSelectPages.put(viewerId, psPage);
@@ -346,55 +366,36 @@ public class MenuManager {
             for (int col = 1; col <= 7; col++) {
                 int slot = row * 9 + col;
                 int dataIndex = startIndex + itemIndex;
-                if (dataIndex < onlineList.size()) {
-                    Player target = onlineList.get(dataIndex);
-                    UUID targetId = target.getUniqueId();
-                    ItemStack head = new ItemStack(Material.PLAYER_HEAD);
-                    SkullMeta skullMeta = (SkullMeta) head.getItemMeta();
-                    if (skullMeta != null) {
-                        skullMeta.setOwningPlayer(target);
-                        boolean isViewing = targetId.equals(currentTarget);
-                        skullMeta.setDisplayName(
-                            (targetId.equals(viewerId) ? ChatColor.AQUA : ChatColor.YELLOW) + target.getName());
-                        List<String> lore = new ArrayList<>();
-                        lore.add(ChatColor.GRAY + "CP数: " +
-                            checkpointManager.getNamedCheckpointNames(targetId).size());
-                        if (isViewing) {
-                            lore.add(ChatColor.GREEN + "✔ 現在表示中");
-                            skullMeta.addEnchant(Enchantment.LUCK, 1, true);
-                            skullMeta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
-                        } else {
-                            lore.add(ChatColor.YELLOW + "クリックでCP一覧を表示");
-                        }
-                        skullMeta.setLore(lore);
-                        skullMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-                        skullMeta.getPersistentDataContainer()
-                            .set(targetUuidKey, PersistentDataType.STRING, targetId.toString());
-                        head.setItemMeta(skullMeta);
-                    }
-                    inv.setItem(slot, head);
+                if (dataIndex < playerList.size()) {
+                    UUID targetId = playerList.get(dataIndex);
+                    OfflinePlayer target = Bukkit.getOfflinePlayer(targetId);
+                    boolean isSelf = targetId.equals(viewerId);
+                    boolean isViewing = targetId.equals(currentTarget);
+                    int cpCount = checkpointManager.getNamedCheckpointNames(targetId).size();
+                    String lastCloneStr = checkpointManager.getCloneTime(viewerId, targetId)
+                        .map(ItemFactory::formatInstant).orElse(null);
+                    int totalClonedCount = checkpointManager.getClonedCount(targetId);
+                    double nearestDist = Math.sqrt(checkpointManager.getNearestCpDistanceSq(targetId, px, pz));
+                    String lastActivityStr = checkpointManager.getLastActivityTime(targetId)
+                        .map(ItemFactory::formatInstant).orElse(null);
+
+                    inv.setItem(slot, ItemFactory.createPlayerSelectHead(
+                        target, isSelf, isViewing, cpCount, lastCloneStr,
+                        totalClonedCount, nearestDist, lastActivityStr, targetUuidKey));
                 }
                 itemIndex++;
             }
         }
 
-        // Navigation
+        // Bottom row controls
         if (totalPages > 1 && psPage > 0) {
             inv.setItem(SLOT_PREVIOUS, ItemFactory.createNavItem(false, psPage, totalPages));
         } else {
             inv.setItem(SLOT_PREVIOUS, ItemFactory.createDisabledNavItem(ChatColor.DARK_GRAY + "前のページなし"));
         }
-        ItemStack infoItem = new ItemStack(Material.WRITABLE_BOOK);
-        ItemMeta infoMeta = infoItem.getItemMeta();
-        if (infoMeta != null) {
-            infoMeta.setDisplayName(ChatColor.AQUA + "ページ情報");
-            infoMeta.setLore(List.of(
-                ChatColor.GRAY + "ページ: " + (psPage + 1) + " / " + totalPages,
-                ChatColor.GRAY + "プレイヤー数: " + totalItems
-            ));
-            infoItem.setItemMeta(infoMeta);
-        }
-        inv.setItem(SLOT_INFO, infoItem);
+        inv.setItem(SLOT_SEARCH, ItemFactory.createPlayerSearchItem());
+        inv.setItem(SLOT_INFO, ItemFactory.createPlayerInfoItem(psPage + 1, totalPages, totalItems, psOrder, psQuery));
+        inv.setItem(SLOT_SORT, ItemFactory.createPlayerSortButtonItem(psOrder));
         if (totalPages > 1 && psPage < totalPages - 1) {
             inv.setItem(SLOT_NEXT, ItemFactory.createNavItem(true, psPage, totalPages));
         } else {
@@ -403,6 +404,30 @@ public class MenuManager {
 
         viewer.openInventory(inv);
         viewer.playSound(viewer.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
+    }
+
+    public void openPlayerSortMenu(Player player) {
+        Inventory inv = Bukkit.createInventory(player, 27, PLAYER_SORT_TITLE);
+        PlayerSortOrder current = playerSelectSortOrders.getOrDefault(player.getUniqueId(), PlayerSortOrder.NAME_ASC);
+        PlayerSortOrder[] orders = PlayerSortOrder.values();
+
+        for (int s = 0; s < 9; s++) inv.setItem(s, ItemFactory.createGlassDeco(Material.CYAN_STAINED_GLASS_PANE));
+        for (int s = 18; s < 27; s++) inv.setItem(s, ItemFactory.createGlassDeco(Material.CYAN_STAINED_GLASS_PANE));
+        for (int s = 9; s < 18; s++) inv.setItem(s, ItemFactory.createGlassDeco(Material.LIGHT_BLUE_STAINED_GLASS_PANE));
+
+        Material[] dyeColors = {
+            Material.LIME_DYE, Material.GREEN_DYE, Material.CYAN_DYE,
+            Material.BLUE_DYE, Material.LIGHT_BLUE_DYE, Material.PURPLE_DYE,
+            Material.YELLOW_DYE,
+        };
+        int dyeBase = 10;
+        for (int i = 0; i < orders.length; i++) {
+            inv.setItem(dyeBase + i, ItemFactory.createSortDyeItem(
+                dyeColors[i % dyeColors.length], orders[i].label, orders[i] == current));
+        }
+
+        player.openInventory(inv);
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
     }
 
     public void openCpOperationMenu(Player viewer, String cpName, UUID targetId) {
@@ -432,9 +457,9 @@ public class MenuManager {
         } else {
             OfflinePlayer tp = Bukkit.getOfflinePlayer(targetId);
             String tName = tp.getName() != null ? tp.getName() : "不明";
-            inv.setItem(9,  ItemFactory.createOperationWoolItem(Material.GREEN_WOOL,
+            inv.setItem(12, ItemFactory.createOperationWoolItem(Material.GREEN_WOOL,
                 ChatColor.GREEN + "テレポート", "クリックでこのCPにテレポート"));
-            inv.setItem(11, ItemFactory.createOperationWoolItem(Material.CYAN_WOOL,
+            inv.setItem(14, ItemFactory.createOperationWoolItem(Material.CYAN_WOOL,
                 ChatColor.AQUA + "クローン", tName + " のCPを自分のリストに追加"));
         }
 
@@ -460,10 +485,31 @@ public class MenuManager {
         }
     }
 
+    public void handlePlayerSortMenuClick(Player player, int rawSlot) {
+        PlayerSortOrder[] orders = PlayerSortOrder.values();
+        int dyeBase = 10;
+        for (int i = 0; i < orders.length; i++) {
+            if (rawSlot == dyeBase + i) {
+                playerSelectSortOrders.put(player.getUniqueId(), orders[i]);
+                playerSelectPages.put(player.getUniqueId(), 0);
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
+                openPlayerSelectMenu(player);
+                return;
+            }
+        }
+    }
+
     public void handlePlayerSelectMenuClick(Player player, InventoryClickEvent event) {
         int rawSlot = event.getRawSlot();
         UUID viewerId = player.getUniqueId();
         int psPage = playerSelectPages.getOrDefault(viewerId, 0);
+
+        PlayerSortOrder psOrder = playerSelectSortOrders.getOrDefault(viewerId, PlayerSortOrder.NAME_ASC);
+        String psQuery = playerSelectSearchQuery.get(viewerId);
+        double px = player.getLocation().getX();
+        double pz = player.getLocation().getZ();
+        List<UUID> playerList = getSortedFilteredPlayers(viewerId, psOrder, psQuery, px, pz);
+        int totalPages = Math.max(1, (int) Math.ceil(playerList.size() / (double) ITEMS_PER_PAGE));
 
         if (rawSlot == SLOT_PREVIOUS && event.isLeftClick() && psPage > 0) {
             playerSelectPages.put(viewerId, psPage - 1);
@@ -471,13 +517,25 @@ public class MenuManager {
             openPlayerSelectMenu(player);
             return;
         }
-        if (rawSlot == SLOT_NEXT && event.isLeftClick()) {
-            int total = (int) Math.ceil(Bukkit.getOnlinePlayers().size() / (double) ITEMS_PER_PAGE);
-            if (psPage < total - 1) {
-                playerSelectPages.put(viewerId, psPage + 1);
-                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.2f);
-                openPlayerSelectMenu(player);
-            }
+        if (rawSlot == SLOT_NEXT && event.isLeftClick() && psPage < totalPages - 1) {
+            playerSelectPages.put(viewerId, psPage + 1);
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.2f);
+            openPlayerSelectMenu(player);
+            return;
+        }
+        if (rawSlot == SLOT_SORT && event.isLeftClick()) {
+            openPlayerSortMenu(player);
+            return;
+        }
+        if (rawSlot == SLOT_SEARCH && event.isLeftClick()) {
+            startPlayerSearchInput(player);
+            return;
+        }
+        if (rawSlot == SLOT_SEARCH && event.isRightClick()) {
+            playerSelectSearchQuery.remove(viewerId);
+            playerSelectPages.put(viewerId, 0);
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
+            openPlayerSelectMenu(player);
             return;
         }
 
@@ -514,8 +572,8 @@ public class MenuManager {
                 else if (rawSlot == 15) startDescriptionInput(player, cpName);
                 else if (rawSlot == 17) executeDeleteCp(player, cpName);
             } else {
-                if (rawSlot == 9)       executeTeleportToCp(player, targetId, cpName);
-                else if (rawSlot == 11) executeCloneCp(player, targetId, cpName);
+                if (rawSlot == 12)      executeTeleportToCp(player, targetId, cpName);
+                else if (rawSlot == 14) executeCloneCp(player, targetId, cpName);
             }
         });
     }
@@ -721,6 +779,47 @@ public class MenuManager {
     }
 
     // -----------------------------------------------------------------------
+    // Player search chat input
+    // -----------------------------------------------------------------------
+
+    public boolean tryHandlePlayerSearchInput(UUID playerId, Player player, String message) {
+        if (!awaitingPlayerSearchInput.remove(playerId)) return false;
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (message.equalsIgnoreCase("cancel")) {
+                player.sendMessage(ChatColor.GRAY + "検索をキャンセルしました。");
+                openPlayerSelectMenu(player);
+                return;
+            }
+            if (message.equalsIgnoreCase("clear")) {
+                playerSelectSearchQuery.remove(playerId);
+                player.sendMessage(ChatColor.GREEN + "検索を解除しました。");
+                playerSelectPages.put(playerId, 0);
+                openPlayerSelectMenu(player);
+                return;
+            }
+            playerSelectSearchQuery.put(playerId, message);
+            player.sendMessage(ChatColor.GREEN + "「" + message + "」で検索中...");
+            playerSelectPages.put(playerId, 0);
+            openPlayerSelectMenu(player);
+        });
+        return true;
+    }
+
+    public void startPlayerSearchInput(Player player) {
+        awaitingPlayerSearchInput.add(player.getUniqueId());
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
+        player.closeInventory();
+        player.sendMessage("");
+        player.sendMessage(ChatColor.YELLOW + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        player.sendMessage(ChatColor.AQUA + "  プレイヤー検索");
+        player.sendMessage(ChatColor.YELLOW + "  検索したいプレイヤー名をチャットに入力してください。");
+        player.sendMessage(ChatColor.GRAY + "  「" + ChatColor.RED + "cancel"
+            + ChatColor.GRAY + "」で取消");
+        player.sendMessage(ChatColor.YELLOW + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        player.sendMessage("");
+    }
+
+    // -----------------------------------------------------------------------
     // CP operation executors
     // -----------------------------------------------------------------------
 
@@ -798,6 +897,7 @@ public class MenuManager {
             viewer.getUniqueId(), cpName, cloned);
         viewer.closeInventory();
         if (success) {
+            checkpointManager.recordClone(viewer.getUniqueId(), targetId);
             viewer.sendMessage(ChatColor.GREEN + "チェックポイント『" + cpName + "』をクローンしました。");
             viewer.playSound(viewer.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
         } else {
@@ -817,8 +917,67 @@ public class MenuManager {
                 menuPages.remove(playerId);
                 pendingOperationCp.remove(playerId);
                 playerSelectPages.remove(playerId);
+                playerSelectSearchQuery.remove(playerId);
             }
         }, 1L);
+    }
+
+    // -----------------------------------------------------------------------
+    // Player list helper
+    // -----------------------------------------------------------------------
+
+    private List<UUID> getSortedFilteredPlayers(UUID viewerId, PlayerSortOrder order,
+            String query, double px, double pz) {
+        Set<UUID> allPlayers = checkpointManager.getAllPlayersWithData();
+        List<UUID> players = new ArrayList<>(allPlayers);
+
+        // Filter by name query
+        if (query != null && !query.isBlank()) {
+            String lower = query.toLowerCase();
+            players.removeIf(uuid -> {
+                String name = Bukkit.getOfflinePlayer(uuid).getName();
+                return name == null || !name.toLowerCase().contains(lower);
+            });
+        }
+
+        // Sort
+        Comparator<UUID> comparator;
+        if (order == PlayerSortOrder.NAME_DESC) {
+            Comparator<UUID> c = Comparator.comparing(
+                (UUID uuid) -> {
+                    String n = Bukkit.getOfflinePlayer(uuid).getName();
+                    return n != null ? n : "";
+                }, String.CASE_INSENSITIVE_ORDER);
+            comparator = c.reversed();
+        } else if (order == PlayerSortOrder.CLONED_BY_ME_DESC) {
+            Comparator<UUID> c = Comparator.comparing(
+                (UUID uuid) -> checkpointManager.getCloneTime(viewerId, uuid).orElse(Instant.MIN));
+            comparator = c.reversed();
+        } else if (order == PlayerSortOrder.CLONED_COUNT_DESC) {
+            Comparator<UUID> c = Comparator.comparingInt(
+                (UUID uuid) -> checkpointManager.getClonedCount(uuid));
+            comparator = c.reversed();
+        } else if (order == PlayerSortOrder.DISTANCE_ASC) {
+            comparator = Comparator.comparingDouble(
+                (UUID uuid) -> checkpointManager.getNearestCpDistanceSq(uuid, px, pz));
+        } else if (order == PlayerSortOrder.LAST_ACTIVITY_DESC) {
+            Comparator<UUID> c = Comparator.comparing(
+                (UUID uuid) -> checkpointManager.getLastActivityTime(uuid).orElse(Instant.MIN));
+            comparator = c.reversed();
+        } else if (order == PlayerSortOrder.LAST_ACTIVITY_ASC) {
+            comparator = Comparator.comparing(
+                (UUID uuid) -> checkpointManager.getLastActivityTime(uuid).orElse(Instant.MAX));
+        } else {
+            // NAME_ASC (default)
+            comparator = Comparator.comparing(
+                (UUID uuid) -> {
+                    String n = Bukkit.getOfflinePlayer(uuid).getName();
+                    return n != null ? n : "";
+                }, String.CASE_INSENSITIVE_ORDER);
+        }
+
+        players.sort(comparator);
+        return players;
     }
 
     // -----------------------------------------------------------------------

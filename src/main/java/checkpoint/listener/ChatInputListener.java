@@ -38,6 +38,11 @@ public class ChatInputListener implements Listener {
 
         if (menuManager.tryHandleSearchInput(playerId, player, message)) {
             event.setCancelled(true);
+            return;
+        }
+
+        if (menuManager.tryHandlePlayerSearchInput(playerId, player, message)) {
+            event.setCancelled(true);
         }
     }
 }

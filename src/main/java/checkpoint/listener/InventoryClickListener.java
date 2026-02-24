@@ -30,6 +30,9 @@ public class InventoryClickListener implements Listener {
         } else if (GuiConstants.PLAYER_SELECT_TITLE.equals(title)) {
             event.setCancelled(true);
             menuManager.handlePlayerSelectMenuClick(player, event);
+        } else if (GuiConstants.PLAYER_SORT_TITLE.equals(title)) {
+            event.setCancelled(true);
+            menuManager.handlePlayerSortMenuClick(player, event.getRawSlot());
         } else if (GuiConstants.CP_OPERATION_TITLE.equals(title)) {
             event.setCancelled(true);
             menuManager.handleCpOperationMenuClick(player, event.getRawSlot());
