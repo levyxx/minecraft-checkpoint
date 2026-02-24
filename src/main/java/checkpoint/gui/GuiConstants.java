@@ -21,6 +21,7 @@ public final class GuiConstants {
     public static final String SORT_TITLE           = ChatColor.DARK_AQUA + "ソート方法を選択";
     public static final String PLAYER_SELECT_TITLE  = ChatColor.DARK_AQUA + "プレイヤーを選択";
     public static final String CP_OPERATION_TITLE   = ChatColor.DARK_AQUA + "CP操作";
+    public static final String PLAYER_SORT_TITLE    = ChatColor.DARK_AQUA + "プレイヤーのソート方法を選択";
 
     public static final DateTimeFormatter CP_DATE_FMT =
         DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm");

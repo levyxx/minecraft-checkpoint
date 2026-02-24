@@ -1,5 +1,6 @@
 checkpoint/listener/PlayerListener.class
 checkpoint/gui/MenuManager$1.class
+checkpoint/model/PlayerSortOrder.class
 checkpoint/gui/MenuManager$SelectionType.class
 checkpoint/manager/CheckpointManager.class
 checkpoint/gui/ItemFactory.class

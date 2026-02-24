@@ -5,8 +5,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import checkpoint.model.Checkpoint;
 import checkpoint.model.RenameResult;
 import checkpoint.model.SortOrder;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -306,5 +308,103 @@ class CheckpointManagerTest {
 
         assertEquals(before.createdAt(), after.createdAt(), "createdAtは変わらないはず");
         assertTrue(after.updatedAt().isAfter(before.updatedAt()), "renameでupdatedAtが更新されるはず");
+    }
+
+    // -----------------------------------------------------------------------
+    // Clone tracking tests
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("クローン記録を追加して取得できる")
+    void shouldRecordAndRetrieveClone() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID cloner = UUID.randomUUID();
+        UUID source = UUID.randomUUID();
+        manager.addNamedCheckpoint(source, "Base", new Checkpoint("world", 0, 64, 0, 0, 0));
+
+        manager.recordClone(cloner, source);
+
+        assertTrue(manager.getCloneTime(cloner, source).isPresent(), "クローン時刻が取得できるはず");
+        assertEquals(1, manager.getClonedCount(source), "被クローン回数は1");
+    }
+
+    @Test
+    @DisplayName("複数回クローンするとカウントが増える")
+    void shouldIncrementCloneCount() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID cloner1 = UUID.randomUUID();
+        UUID cloner2 = UUID.randomUUID();
+        UUID source = UUID.randomUUID();
+
+        manager.recordClone(cloner1, source);
+        manager.recordClone(cloner2, source);
+
+        assertEquals(2, manager.getClonedCount(source), "2回クローンされたはず");
+    }
+
+    @Test
+    @DisplayName("クローンしていないプレイヤーのクローン時刻はempty")
+    void shouldReturnEmptyCloneTimeForUncloned() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID a = UUID.randomUUID();
+        UUID b = UUID.randomUUID();
+
+        assertTrue(manager.getCloneTime(a, b).isEmpty());
+        assertEquals(0, manager.getClonedCount(b));
+    }
+
+    @Test
+    @DisplayName("データがある全プレイヤーを取得できる")
+    void shouldReturnAllPlayersWithData() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID p1 = UUID.randomUUID();
+        UUID p2 = UUID.randomUUID();
+        manager.addNamedCheckpoint(p1, "A", new Checkpoint("world", 0, 64, 0, 0, 0));
+        manager.addNamedCheckpoint(p2, "B", new Checkpoint("world", 10, 64, 10, 0, 0));
+
+        Set<UUID> all = manager.getAllPlayersWithData();
+
+        assertEquals(2, all.size());
+        assertTrue(all.contains(p1));
+        assertTrue(all.contains(p2));
+    }
+
+    @Test
+    @DisplayName("最終操作日時を取得できる")
+    void shouldReturnLastActivityTime() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID playerId = UUID.randomUUID();
+        manager.addNamedCheckpoint(playerId, "A", new Checkpoint("world", 0, 64, 0, 0, 0));
+
+        Optional<Instant> time = manager.getLastActivityTime(playerId);
+
+        assertTrue(time.isPresent(), "最終操作日時が取得できるはず");
+    }
+
+    @Test
+    @DisplayName("CPがないプレイヤーの最終操作日時はempty")
+    void shouldReturnEmptyLastActivityForNoData() {
+        CheckpointManager manager = new CheckpointManager();
+        assertTrue(manager.getLastActivityTime(UUID.randomUUID()).isEmpty());
+    }
+
+    @Test
+    @DisplayName("最寄りCPの距離を計算できる")
+    void shouldComputeNearestCpDistance() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID playerId = UUID.randomUUID();
+        manager.addNamedCheckpoint(playerId, "Near", new Checkpoint("world", 10, 64, 0, 0, 0));
+        manager.addNamedCheckpoint(playerId, "Far", new Checkpoint("world", 1000, 64, 0, 0, 0));
+
+        double distSq = manager.getNearestCpDistanceSq(playerId, 0, 0);
+
+        assertEquals(100.0, distSq, 0.001, "最寄りCP (10,0) との距離の2乗は100");
+    }
+
+    @Test
+    @DisplayName("CPがないプレイヤーの最寄り距離はMAX_VALUE")
+    void shouldReturnMaxDistanceForNoData() {
+        CheckpointManager manager = new CheckpointManager();
+        assertEquals(Double.MAX_VALUE, manager.getNearestCpDistanceSq(UUID.randomUUID(), 0, 0));
     }
 }
