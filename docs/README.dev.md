@@ -181,7 +181,7 @@ return List.of("set", "update", "delete", "rename", "description",
 commands:
   cp:
     usage: |-
-      /cp set <name> [description]
+      /cp set <name> [-d description]
       /cp newsubcmd <args>   ← 追加
       /cp help
 ```

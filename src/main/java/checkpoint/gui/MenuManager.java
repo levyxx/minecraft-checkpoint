@@ -906,7 +906,8 @@ public class MenuManager {
         }
         Checkpoint src = cpOpt.get();
         Checkpoint cloned = new Checkpoint(src.worldName(),
-            src.x(), src.y(), src.z(), src.yaw(), src.pitch());
+            src.x(), src.y(), src.z(), src.yaw(), src.pitch(),
+            java.time.Instant.now(), java.time.Instant.now(), src.description());
         boolean success = checkpointManager.addNamedCheckpoint(viewerId, cpName, cloned);
         viewer.closeInventory();
         if (success) {

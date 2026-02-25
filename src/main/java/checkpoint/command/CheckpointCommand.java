@@ -52,14 +52,22 @@ public class CheckpointCommand implements TabExecutor {
                     player.sendMessage(ChatColor.RED + Messages.cmdEnterCpName(playerId));
                     return true;
                 }
-                String name = args[1].trim();
+                int descFlagIndex = findDescriptionFlag(args);
+                String name;
+                String desc;
+                if (descFlagIndex > 0) {
+                    name = String.join(" ", Arrays.copyOfRange(args, 1, descFlagIndex)).trim();
+                    desc = descFlagIndex + 1 < args.length
+                        ? String.join(" ", Arrays.copyOfRange(args, descFlagIndex + 1, args.length)).trim()
+                        : "";
+                } else {
+                    name = String.join(" ", Arrays.copyOfRange(args, 1, args.length)).trim();
+                    desc = "";
+                }
                 if (name.isEmpty()) {
                     player.sendMessage(ChatColor.RED + Messages.cmdEnterCpName(playerId));
                     return true;
                 }
-                String desc = args.length >= 3
-                    ? String.join(" ", Arrays.copyOfRange(args, 2, args.length)).trim()
-                    : "";
                 handleSet(player, playerId, name, desc);
             }
             case "update" -> {
@@ -79,19 +87,35 @@ public class CheckpointCommand implements TabExecutor {
                 handleDelete(player, playerId, name);
             }
             case "rename" -> {
-                if (args.length < 3) {
+                int nameFlagIdx = findNameFlag(args);
+                if (nameFlagIdx < 0) {
                     player.sendMessage(ChatColor.RED + Messages.cmdUsageRename(playerId, label));
                     return true;
                 }
-                handleRename(player, playerId, args[1], args[2]);
+                String oldName = String.join(" ", Arrays.copyOfRange(args, 1, nameFlagIdx)).trim();
+                String newName = nameFlagIdx + 1 < args.length
+                    ? String.join(" ", Arrays.copyOfRange(args, nameFlagIdx + 1, args.length)).trim()
+                    : "";
+                if (oldName.isEmpty() || newName.isEmpty()) {
+                    player.sendMessage(ChatColor.RED + Messages.cmdUsageRename(playerId, label));
+                    return true;
+                }
+                handleRename(player, playerId, oldName, newName);
             }
             case "description" -> {
-                if (args.length < 3) {
+                int descFlagIdx = findDescriptionFlag(args);
+                if (descFlagIdx < 0) {
                     player.sendMessage(ChatColor.RED + Messages.cmdUsageDesc(playerId, label));
                     return true;
                 }
-                String name = args[1].trim();
-                String desc = String.join(" ", Arrays.copyOfRange(args, 2, args.length)).trim();
+                String name = String.join(" ", Arrays.copyOfRange(args, 1, descFlagIdx)).trim();
+                String desc = descFlagIdx + 1 < args.length
+                    ? String.join(" ", Arrays.copyOfRange(args, descFlagIdx + 1, args.length)).trim()
+                    : "";
+                if (name.isEmpty()) {
+                    player.sendMessage(ChatColor.RED + Messages.cmdEnterCpName(playerId));
+                    return true;
+                }
                 handleDescription(player, playerId, name, desc);
             }
             case "items" -> plugin.giveCheckpointItems(player);
@@ -106,6 +130,24 @@ public class CheckpointCommand implements TabExecutor {
             default -> sendUsage(player, playerId, label);
         }
         return true;
+    }
+
+    private static int findDescriptionFlag(String[] args) {
+        for (int i = 1; i < args.length; i++) {
+            if ("-d".equals(args[i]) || "--description".equals(args[i])) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static int findNameFlag(String[] args) {
+        for (int i = 1; i < args.length; i++) {
+            if ("-n".equals(args[i]) || "--name".equals(args[i])) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private String extractName(String[] args) {
@@ -294,6 +336,24 @@ public class CheckpointCommand implements TabExecutor {
             return names.stream()
                 .filter(candidate -> candidate.toLowerCase(Locale.ROOT).startsWith(entered))
                 .collect(Collectors.toList());
+        }
+
+        if ("set".equalsIgnoreCase(args[0]) || "description".equalsIgnoreCase(args[0])) {
+            String last = args[args.length - 1].toLowerCase(Locale.ROOT);
+            if ("-d".startsWith(last) || "--description".startsWith(last)) {
+                return List.of("-d", "--description").stream()
+                    .filter(opt -> opt.startsWith(last))
+                    .collect(Collectors.toList());
+            }
+        }
+
+        if ("rename".equalsIgnoreCase(args[0])) {
+            String last = args[args.length - 1].toLowerCase(Locale.ROOT);
+            if ("-n".startsWith(last) || "--name".startsWith(last)) {
+                return List.of("-n", "--name").stream()
+                    .filter(opt -> opt.startsWith(last))
+                    .collect(Collectors.toList());
+            }
         }
 
         return List.of();
