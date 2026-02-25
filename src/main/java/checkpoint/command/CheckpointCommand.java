@@ -280,7 +280,7 @@ public class CheckpointCommand implements TabExecutor {
 
     private void handleLanguage(Player player, UUID playerId, String langArg) {
         String lower = langArg.toLowerCase(Locale.ROOT);
-        if ("jp".equals(lower) || "ja".equals(lower)) {
+        if ("ja".equals(lower)) {
             plugin.setPlayerLanguageManual(playerId, Lang.JP);
         } else if ("en".equals(lower)) {
             plugin.setPlayerLanguageManual(playerId, Lang.EN);
@@ -324,36 +324,61 @@ public class CheckpointCommand implements TabExecutor {
         }
 
         if (args.length == 2 && ("language".equalsIgnoreCase(args[0]) || "lang".equalsIgnoreCase(args[0]))) {
-            return List.of("jp", "en").stream()
+            return List.of("ja", "en").stream()
                 .filter(opt -> opt.startsWith(args[1].toLowerCase(Locale.ROOT)))
                 .collect(Collectors.toList());
         }
 
-        if (args.length >= 2 && ("delete".equalsIgnoreCase(args[0]) || "update".equalsIgnoreCase(args[0])
-                || "rename".equalsIgnoreCase(args[0]) || "description".equalsIgnoreCase(args[0]))) {
+        if (args.length >= 2 && ("delete".equalsIgnoreCase(args[0]) || "update".equalsIgnoreCase(args[0]))) {
             List<String> names = new ArrayList<>(checkpointManager.getNamedCheckpointNames(player.getUniqueId()));
-            String entered = args[1].toLowerCase(Locale.ROOT);
+            String entered = String.join(" ", Arrays.copyOfRange(args, 1, args.length)).toLowerCase(Locale.ROOT);
             return names.stream()
                 .filter(candidate -> candidate.toLowerCase(Locale.ROOT).startsWith(entered))
                 .collect(Collectors.toList());
         }
 
-        if ("set".equalsIgnoreCase(args[0]) || "description".equalsIgnoreCase(args[0])) {
+        if (args.length >= 2 && "set".equalsIgnoreCase(args[0])) {
             String last = args[args.length - 1].toLowerCase(Locale.ROOT);
-            if ("-d".startsWith(last) || "--description".startsWith(last)) {
+            if (findDescriptionFlag(args) < 0 && last.startsWith("-")) {
                 return List.of("-d", "--description").stream()
                     .filter(opt -> opt.startsWith(last))
                     .collect(Collectors.toList());
             }
+            return List.of();
         }
 
-        if ("rename".equalsIgnoreCase(args[0])) {
-            String last = args[args.length - 1].toLowerCase(Locale.ROOT);
-            if ("-n".startsWith(last) || "--name".startsWith(last)) {
-                return List.of("-n", "--name").stream()
-                    .filter(opt -> opt.startsWith(last))
+        if (args.length >= 2 && "rename".equalsIgnoreCase(args[0])) {
+            if (findNameFlag(args) < 0) {
+                String last = args[args.length - 1].toLowerCase(Locale.ROOT);
+                if (last.startsWith("-")) {
+                    return List.of("-n", "--name").stream()
+                        .filter(opt -> opt.startsWith(last))
+                        .collect(Collectors.toList());
+                }
+                List<String> names = new ArrayList<>(checkpointManager.getNamedCheckpointNames(player.getUniqueId()));
+                String entered = String.join(" ", Arrays.copyOfRange(args, 1, args.length)).toLowerCase(Locale.ROOT);
+                return names.stream()
+                    .filter(candidate -> candidate.toLowerCase(Locale.ROOT).startsWith(entered))
                     .collect(Collectors.toList());
             }
+            return List.of();
+        }
+
+        if (args.length >= 2 && "description".equalsIgnoreCase(args[0])) {
+            if (findDescriptionFlag(args) < 0) {
+                String last = args[args.length - 1].toLowerCase(Locale.ROOT);
+                if (last.startsWith("-")) {
+                    return List.of("-d", "--description").stream()
+                        .filter(opt -> opt.startsWith(last))
+                        .collect(Collectors.toList());
+                }
+                List<String> names = new ArrayList<>(checkpointManager.getNamedCheckpointNames(player.getUniqueId()));
+                String entered = String.join(" ", Arrays.copyOfRange(args, 1, args.length)).toLowerCase(Locale.ROOT);
+                return names.stream()
+                    .filter(candidate -> candidate.toLowerCase(Locale.ROOT).startsWith(entered))
+                    .collect(Collectors.toList());
+            }
+            return List.of();
         }
 
         return List.of();
