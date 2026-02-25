@@ -3,10 +3,13 @@ package checkpoint;
 import checkpoint.command.CheckpointCommand;
 import checkpoint.gui.MenuManager;
 import checkpoint.i18n.Messages;
+import checkpoint.i18n.Messages.Lang;
 import checkpoint.listener.ChatInputListener;
 import checkpoint.listener.InventoryClickListener;
 import checkpoint.listener.PlayerListener;
 import checkpoint.manager.CheckpointManager;
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -16,6 +19,7 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
@@ -31,6 +35,7 @@ public class CheckpointPlugin extends JavaPlugin {
     private CheckpointManager checkpointManager;
     private MenuManager menuManager;
     private NamespacedKey cpItemKey;
+    private File languagesFile;
 
     @Override
     public void onEnable() {
@@ -41,6 +46,9 @@ public class CheckpointPlugin extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new InventoryClickListener(menuManager), this);
         Bukkit.getPluginManager().registerEvents(new ChatInputListener(menuManager), this);
         Bukkit.getPluginManager().registerEvents(new PlayerListener(menuManager, cpItemKey), this);
+
+        this.languagesFile = new File(getDataFolder(), "languages.yml");
+        loadLanguagePreferences();
 
         PluginCommand cpCommand = getCommand("cp");
         if (cpCommand != null) {
@@ -116,8 +124,59 @@ public class CheckpointPlugin extends JavaPlugin {
      */
     public void initPlayerLang(Player player) {
         UUID playerId = player.getUniqueId();
-        // Only auto-detect if no preference was manually set
-        Messages.setLang(playerId, Messages.detectLang(player.getLocale()));
+        if (Messages.isManuallySet(playerId)) {
+            // Restore manually set preference; don't override with locale
+            Messages.setLang(playerId, Messages.getManualLang(playerId));
+        } else {
+            Messages.setLang(playerId, Messages.detectLang(player.getLocale()));
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Manual language preference — exposed for CheckpointCommand
+    // -----------------------------------------------------------------------
+
+    /**
+     * Persist and apply a language preference set explicitly by the player.
+     * Survives server restarts and /cp items calls.
+     */
+    public void setPlayerLanguageManual(UUID playerId, Lang lang) {
+        Messages.setLangManual(playerId, lang);
+        saveLanguagePreference(playerId, lang);
+    }
+
+    // -----------------------------------------------------------------------
+    // Language persistence helpers
+    // -----------------------------------------------------------------------
+
+    private void loadLanguagePreferences() {
+        if (!languagesFile.exists()) return;
+        YamlConfiguration cfg = YamlConfiguration.loadConfiguration(languagesFile);
+        for (String key : cfg.getKeys(false)) {
+            try {
+                UUID uuid = UUID.fromString(key);
+                String langStr = cfg.getString(key, "JP");
+                Lang lang = "EN".equalsIgnoreCase(langStr) ? Lang.EN : Lang.JP;
+                Messages.loadManualLang(uuid, lang);
+            } catch (IllegalArgumentException ignored) {
+                // Skip malformed keys
+            }
+        }
+    }
+
+    private void saveLanguagePreference(UUID playerId, Lang lang) {
+        if (!languagesFile.getParentFile().exists()) {
+            languagesFile.getParentFile().mkdirs();
+        }
+        YamlConfiguration cfg = languagesFile.exists()
+            ? YamlConfiguration.loadConfiguration(languagesFile)
+            : new YamlConfiguration();
+        cfg.set(playerId.toString(), lang.name());
+        try {
+            cfg.save(languagesFile);
+        } catch (IOException e) {
+            getLogger().warning("Failed to save language preferences: " + e.getMessage());
+        }
     }
 
     private ItemStack createUtilityItem(Material material, ChatColor color,

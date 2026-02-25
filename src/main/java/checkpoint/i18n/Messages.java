@@ -14,7 +14,9 @@ public final class Messages {
 
     public enum Lang { JP, EN }
 
-    private static final Map<UUID, Lang> playerLangs = new ConcurrentHashMap<>();
+    private static final Map<UUID, Lang> playerLangs  = new ConcurrentHashMap<>();
+    /** Players who explicitly set their language via /cp language. Persisted across sessions. */
+    private static final Map<UUID, Lang> manualLangs  = new ConcurrentHashMap<>();
 
     private Messages() {}
 
@@ -22,10 +24,37 @@ public final class Messages {
     // Player language management
     // -----------------------------------------------------------------------
 
+    /** Set language (auto-detected). Does NOT override a manually set preference. */
     public static void setLang(UUID playerId, Lang lang) { playerLangs.put(playerId, lang); }
+
+    /** Set language explicitly by the player. Marks it as manually set. */
+    public static void setLangManual(UUID playerId, Lang lang) {
+        manualLangs.put(playerId, lang);
+        playerLangs.put(playerId, lang);
+    }
+
+    /** Returns true if the player has manually set their language. */
+    public static boolean isManuallySet(UUID playerId) { return manualLangs.containsKey(playerId); }
+
+    /** Returns the manually set language, or null if not manually set. */
+    public static Lang getManualLang(UUID playerId) { return manualLangs.get(playerId); }
+
+    /**
+     * Load a persisted manual language preference (called on plugin enable or player join).
+     * Does not affect playerLangs — call setLang separately to activate it.
+     */
+    public static void loadManualLang(UUID playerId, Lang lang) { manualLangs.put(playerId, lang); }
+
     public static Lang getLang(UUID playerId) { return playerLangs.getOrDefault(playerId, Lang.JP); }
+
+    /** Remove in-session language state. Manual preference is intentionally kept. */
     public static void removeLang(UUID playerId) { playerLangs.remove(playerId); }
+
+    /** Clear all in-session state. Manual preferences are intentionally kept for persistence. */
     public static void clearAll() { playerLangs.clear(); }
+
+    /** Clear all state including manual preferences (used for testing). */
+    public static void clearAllIncludingManual() { playerLangs.clear(); manualLangs.clear(); }
 
     /** Determine default language from Minecraft client locale string. */
     public static Lang detectLang(String locale) {

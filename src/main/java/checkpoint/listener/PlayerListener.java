@@ -3,6 +3,7 @@ package checkpoint.listener;
 import checkpoint.gui.GuiConstants;
 import checkpoint.gui.MenuManager;
 import checkpoint.i18n.Messages;
+import java.util.UUID;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
@@ -39,7 +40,13 @@ public class PlayerListener implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        Messages.setLang(player.getUniqueId(), Messages.detectLang(player.getLocale()));
+        UUID playerId = player.getUniqueId();
+        if (Messages.isManuallySet(playerId)) {
+            // Restore the player's own language preference
+            Messages.setLang(playerId, Messages.getManualLang(playerId));
+        } else {
+            Messages.setLang(playerId, Messages.detectLang(player.getLocale()));
+        }
     }
 
     @EventHandler
@@ -112,17 +119,14 @@ public class PlayerListener implements Listener {
     private void handleGameModeToggle(Player player) {
         java.util.UUID playerId = player.getUniqueId();
         GameMode current = player.getGameMode();
-        if (current == GameMode.ADVENTURE) {
-            player.setGameMode(GameMode.CREATIVE);
-            player.sendMessage(ChatColor.GREEN + Messages.gmCreative(playerId));
-            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.3f);
-            return;
-        }
-
         if (current == GameMode.CREATIVE) {
             player.setGameMode(GameMode.ADVENTURE);
             player.sendMessage(ChatColor.GREEN + Messages.gmAdventure(playerId));
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 0.8f);
+        } else {
+            player.setGameMode(GameMode.CREATIVE);
+            player.sendMessage(ChatColor.GREEN + Messages.gmCreative(playerId));
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.3f);
         }
     }
 }
