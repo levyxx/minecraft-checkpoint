@@ -124,11 +124,11 @@ public final class Messages {
         HC + "/" + l + " delete <名前>" + HD + "  指定したCPを削除します",
         HC + "/" + l + " delete <name>" + HD + "  Delete specified CP"); }
     public static String helpRename(UUID id, String l) { return get(id,
-        HC + "/" + l + " rename <元の名前> -n <新しい名前>" + HD + "  CPの名前を変更します（名前にスペース可）",
-        HC + "/" + l + " rename <old> -n <new>" + HD + "  Rename a CP (spaces OK in names)"); }
+        HC + "/" + l + " rename <元の名前> -n <新しい名前>" + HD + "  CPの名前を変更します",
+        HC + "/" + l + " rename <old> -n <new>" + HD + "  Rename a CP"); }
     public static String helpDescription(UUID id, String l) { return get(id,
-        HC + "/" + l + " description <名前> -d <説明>" + HD + "  CPに説明を設定します（名前にスペース可）",
-        HC + "/" + l + " description <name> -d <desc>" + HD + "  Set CP description (spaces OK in name)"); }
+        HC + "/" + l + " description <名前> -d <説明>" + HD + "  CPに説明を設定します",
+        HC + "/" + l + " description <name> -d <desc>" + HD + "  Set CP description"); }
     public static String helpItems(UUID id, String l) { return get(id,
         HC + "/" + l + " items" + HD + "  チェックポイント用アイテムを受け取ります",
         HC + "/" + l + " items" + HD + "  Receive checkpoint utility items"); }
