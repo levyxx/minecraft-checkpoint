@@ -280,7 +280,7 @@ public class CheckpointCommand implements TabExecutor {
 
     private void handleLanguage(Player player, UUID playerId, String langArg) {
         String lower = langArg.toLowerCase(Locale.ROOT);
-        if ("jp".equals(lower) || "ja".equals(lower)) {
+        if ("ja".equals(lower)) {
             plugin.setPlayerLanguageManual(playerId, Lang.JP);
         } else if ("en".equals(lower)) {
             plugin.setPlayerLanguageManual(playerId, Lang.EN);
@@ -324,7 +324,7 @@ public class CheckpointCommand implements TabExecutor {
         }
 
         if (args.length == 2 && ("language".equalsIgnoreCase(args[0]) || "lang".equalsIgnoreCase(args[0]))) {
-            return List.of("jp", "en").stream()
+            return List.of("ja", "en").stream()
                 .filter(opt -> opt.startsWith(args[1].toLowerCase(Locale.ROOT)))
                 .collect(Collectors.toList());
         }

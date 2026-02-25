@@ -86,7 +86,7 @@ public final class Messages {
     public static String cmdEnterCpName(UUID id)   { return get(id, "チェックポイント名を入力してください。", "Please enter a checkpoint name."); }
     public static String cmdUsageRename(UUID id, String l) { return get(id, "使い方: /" + l + " rename <元のCP名> -n <変更後のCP名>", "Usage: /" + l + " rename <old-name> -n <new-name>"); }
     public static String cmdUsageDesc(UUID id, String l)   { return get(id, "使い方: /" + l + " description <CP名> -d <説明>", "Usage: /" + l + " description <name> -d <description>"); }
-    public static String cmdUsageLanguage(UUID id, String l) { return get(id, "使い方: /" + l + " language <jp|en>", "Usage: /" + l + " language <jp|en>"); }
+    public static String cmdUsageLanguage(UUID id, String l) { return get(id, "使い方: /" + l + " language <ja|en>", "Usage: /" + l + " language <ja|en>"); }
     public static String cmdUsage(UUID id, String l) { return get(id,
         "/" + l + " help" + " でコマンド一覧を確認できます。",
         "Run /" + l + " help to see available commands."); }
@@ -133,8 +133,8 @@ public final class Messages {
         HC + "/" + l + " items" + HD + "  チェックポイント用アイテムを受け取ります",
         HC + "/" + l + " items" + HD + "  Receive checkpoint utility items"); }
     public static String helpLanguage(UUID id, String l) { return get(id,
-        HC + "/" + l + " language <jp|en>" + HD + "  言語を変更します",
-        HC + "/" + l + " language <jp|en>" + HD + "  Change language"); }
+        HC + "/" + l + " language <ja|en>" + HD + "  言語を変更します",
+        HC + "/" + l + " language <ja|en>" + HD + "  Change language"); }
     public static String helpHelp(UUID id, String l) { return get(id,
         HC + "/" + l + " help" + HD + "  このヘルプを表示します",
         HC + "/" + l + " help" + HD + "  Show this help"); }
