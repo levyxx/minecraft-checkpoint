@@ -52,14 +52,22 @@ public class CheckpointCommand implements TabExecutor {
                     player.sendMessage(ChatColor.RED + Messages.cmdEnterCpName(playerId));
                     return true;
                 }
-                String name = args[1].trim();
+                int descFlagIndex = findDescriptionFlag(args);
+                String name;
+                String desc;
+                if (descFlagIndex > 0) {
+                    name = String.join(" ", Arrays.copyOfRange(args, 1, descFlagIndex)).trim();
+                    desc = descFlagIndex + 1 < args.length
+                        ? String.join(" ", Arrays.copyOfRange(args, descFlagIndex + 1, args.length)).trim()
+                        : "";
+                } else {
+                    name = String.join(" ", Arrays.copyOfRange(args, 1, args.length)).trim();
+                    desc = "";
+                }
                 if (name.isEmpty()) {
                     player.sendMessage(ChatColor.RED + Messages.cmdEnterCpName(playerId));
                     return true;
                 }
-                String desc = args.length >= 3
-                    ? String.join(" ", Arrays.copyOfRange(args, 2, args.length)).trim()
-                    : "";
                 handleSet(player, playerId, name, desc);
             }
             case "update" -> {
@@ -106,6 +114,15 @@ public class CheckpointCommand implements TabExecutor {
             default -> sendUsage(player, playerId, label);
         }
         return true;
+    }
+
+    private static int findDescriptionFlag(String[] args) {
+        for (int i = 1; i < args.length; i++) {
+            if ("-d".equals(args[i]) || "--description".equals(args[i])) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private String extractName(String[] args) {
@@ -294,6 +311,15 @@ public class CheckpointCommand implements TabExecutor {
             return names.stream()
                 .filter(candidate -> candidate.toLowerCase(Locale.ROOT).startsWith(entered))
                 .collect(Collectors.toList());
+        }
+
+        if ("set".equalsIgnoreCase(args[0])) {
+            String last = args[args.length - 1].toLowerCase(Locale.ROOT);
+            if ("-d".startsWith(last) || "--description".startsWith(last)) {
+                return List.of("-d", "--description").stream()
+                    .filter(opt -> opt.startsWith(last))
+                    .collect(Collectors.toList());
+            }
         }
 
         return List.of();

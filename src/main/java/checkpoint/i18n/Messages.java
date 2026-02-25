@@ -115,8 +115,8 @@ public final class Messages {
 
     public static String helpTitle(UUID id) { return get(id, "コマンド一覧", "Command List"); }
     public static String helpSet(UUID id, String l) { return get(id,
-        HC + "/" + l + " set <名前> [説明]" + HD + "  現在地を指定した名前で保存します（説明は省略可）",
-        HC + "/" + l + " set <name> [desc]" + HD + "  Save current location with a name (desc optional)"); }
+        HC + "/" + l + " set <名前> [-d 説明]" + HD + "  現在地を指定した名前で保存（名前にスペース可、-d で説明追加）",
+        HC + "/" + l + " set <name> [-d desc]" + HD + "  Save current location with a name (spaces OK, -d for description)"); }
     public static String helpUpdate(UUID id, String l) { return get(id,
         HC + "/" + l + " update <名前>" + HD + "  既存CPの座標を現在地で上書きします",
         HC + "/" + l + " update <name>" + HD + "  Update existing CP coordinates to current location"); }

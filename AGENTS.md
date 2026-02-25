@@ -126,7 +126,7 @@ public static String helpNewSubCmd(UUID id, String l) { return get(id,
 commands:
   cp:
     usage: |-
-      /cp set <name> [description]
+      /cp set <name> [-d description]
       /cp newsubcmd <args>   ← 追加
       /cp help
 ```
