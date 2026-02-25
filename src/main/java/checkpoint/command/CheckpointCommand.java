@@ -239,9 +239,9 @@ public class CheckpointCommand implements TabExecutor {
     private void handleLanguage(Player player, UUID playerId, String langArg) {
         String lower = langArg.toLowerCase(Locale.ROOT);
         if ("jp".equals(lower) || "ja".equals(lower)) {
-            Messages.setLang(playerId, Lang.JP);
+            plugin.setPlayerLanguageManual(playerId, Lang.JP);
         } else if ("en".equals(lower)) {
-            Messages.setLang(playerId, Lang.EN);
+            plugin.setPlayerLanguageManual(playerId, Lang.EN);
         } else {
             player.sendMessage(ChatColor.RED + Messages.cmdUsageLanguage(playerId, "cp"));
             return;
