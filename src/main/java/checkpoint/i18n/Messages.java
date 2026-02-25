@@ -84,8 +84,8 @@ public final class Messages {
 
     public static String cmdPlayerOnly(UUID id)    { return get(id, "このコマンドはプレイヤーのみ使用できます。", "This command can only be used by players."); }
     public static String cmdEnterCpName(UUID id)   { return get(id, "チェックポイント名を入力してください。", "Please enter a checkpoint name."); }
-    public static String cmdUsageRename(UUID id, String l) { return get(id, "使い方: /" + l + " rename <元のCP名> <変更後のCP名>", "Usage: /" + l + " rename <old-name> <new-name>"); }
-    public static String cmdUsageDesc(UUID id, String l)   { return get(id, "使い方: /" + l + " description <CP名> <説明>", "Usage: /" + l + " description <name> <description>"); }
+    public static String cmdUsageRename(UUID id, String l) { return get(id, "使い方: /" + l + " rename <元のCP名> -n <変更後のCP名>", "Usage: /" + l + " rename <old-name> -n <new-name>"); }
+    public static String cmdUsageDesc(UUID id, String l)   { return get(id, "使い方: /" + l + " description <CP名> -d <説明>", "Usage: /" + l + " description <name> -d <description>"); }
     public static String cmdUsageLanguage(UUID id, String l) { return get(id, "使い方: /" + l + " language <jp|en>", "Usage: /" + l + " language <jp|en>"); }
     public static String cmdUsage(UUID id, String l) { return get(id,
         "/" + l + " help" + " でコマンド一覧を確認できます。",
@@ -124,11 +124,11 @@ public final class Messages {
         HC + "/" + l + " delete <名前>" + HD + "  指定したCPを削除します",
         HC + "/" + l + " delete <name>" + HD + "  Delete specified CP"); }
     public static String helpRename(UUID id, String l) { return get(id,
-        HC + "/" + l + " rename <元の名前> <新しい名前>" + HD + "  CPの名前を変更します",
-        HC + "/" + l + " rename <old> <new>" + HD + "  Rename a CP"); }
+        HC + "/" + l + " rename <元の名前> -n <新しい名前>" + HD + "  CPの名前を変更します（名前にスペース可）",
+        HC + "/" + l + " rename <old> -n <new>" + HD + "  Rename a CP (spaces OK in names)"); }
     public static String helpDescription(UUID id, String l) { return get(id,
-        HC + "/" + l + " description <名前> <説明>" + HD + "  CPに説明を設定します",
-        HC + "/" + l + " description <name> <desc>" + HD + "  Set CP description"); }
+        HC + "/" + l + " description <名前> -d <説明>" + HD + "  CPに説明を設定します（名前にスペース可）",
+        HC + "/" + l + " description <name> -d <desc>" + HD + "  Set CP description (spaces OK in name)"); }
     public static String helpItems(UUID id, String l) { return get(id,
         HC + "/" + l + " items" + HD + "  チェックポイント用アイテムを受け取ります",
         HC + "/" + l + " items" + HD + "  Receive checkpoint utility items"); }
