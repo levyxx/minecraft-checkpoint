@@ -75,27 +75,36 @@ src/main/java/checkpoint/
     Checkpoint.java                  # CP データモデル（不変クラス: name, world, x/y/z, createdAt, updatedAt）
     SortOrder.java                   # CP ソート順 enum（7 種類）
     PlayerSortOrder.java             # プレイヤーソート順 enum（7 種類）
+    ClearSortOrder.java              # クリアソート順 enum
     RenameResult.java                # リネーム操作の結果 enum（SUCCESS / OLD_NOT_FOUND / NEW_EXISTS）
   manager/
     CheckpointManager.java           # インメモリ CRUD・ソート・検索（Bukkit 非依存）
   command/
-    CheckpointCommand.java           # /cp コマンド実装（TabExecutor）
+    CheckpointCommand.java           # /cp コマンド実装（TabExecutor・ディスパッチャ）
+    SubcommandHandlers.java          # 各サブコマンドのハンドラ実装（set / update / delete / rename 等）
   gui/
-    GuiConstants.java                # GUI 定数（スロット番号・タイトル名セット・isXTitle() メソッド）
-    ItemFactory.java                 # GUI 用 ItemStack 生成ファクトリ
-    MenuManager.java                 # 全 GUI の状態管理・メニュー表示・CP 操作実行
+    GuiConstants.java                # GUI 定数（スロット番号・タイトル名セット・isOurMenu() 等）
+    ItemFactory.java                 # CP 関連 ItemStack 生成（ペーパー・ウール・ナビ・ソートボタン等）
+    PlayerItemFactory.java           # プレイヤー関連 ItemStack 生成（ヘッド・操作ウール等）
+    MenuManager.java                 # 全 GUI 状態管理ファサード（各ハンドラへ委譲）
+    MenuRenderer.java                # メニュー表示（インベントリ構築・openInventory）
+    MenuClickHandler.java            # インベントリクリックイベント処理
+    ChatInputHandler.java            # チャット入力処理（検索・リネーム・説明変更）
+    TeleportHandler.java             # テレポート・CP 操作実行（update / delete / clone）
   i18n/
     Messages.java                    # 多言語メッセージ管理（JP / EN）
   listener/
     InventoryClickListener.java      # インベントリクリックイベントハンドラ
-    ChatInputListener.java           # チャット入力ハンドラ（検索・リネーム・説明変更）
+    ChatInputListener.java           # チャット入力イベントハンドラ（検索・リネーム・説明変更）
     PlayerListener.java              # アイテム操作・ドロップ防止・参加時言語検出・退出時クリーンアップ
+  storage/
+    CheckpointStorage.java           # チェックポイントデータの永続化
 
 src/main/resources/
   plugin.yml                         # Bukkit プラグイン設定（コマンド定義・バージョン）
 
 src/test/java/checkpoint/manager/
-  CheckpointManagerTest.java         # CheckpointManager の単体テスト（28 件）
+  CheckpointManagerTest.java         # CheckpointManager の単体テスト
 
 docs/
   README.dev.md                      # このファイル（開発者ガイド）
@@ -142,31 +151,31 @@ pom.xml                              # Maven ビルド設定
 
 ```java
 case "newsubcmd" -> {
-    // 引数バリデーション・ハンドラ呼び出し
+    // 引数バリデーション後、handlers に委譲
+    handlers.handleNewSubCmd(player, playerId, /* 引数 */);
 }
 ```
 
-#### ② ハンドラメソッドを追加
-
-```java
-private void handleNewSubCmd(Player player, UUID playerId, /* 引数 */) {
-    // 処理
-}
-```
-
-#### ③ `sendUsage()` にコマンドを追記
-
-```java
-player.sendMessage(Messages.cmdUsage(playerId, label));
-// または sendHelp() の helpXxx() 呼び出し行へ追加
-```
-
-#### ④ `onTabComplete()` の候補リストに追加
+#### ② `onTabComplete()` の候補リストに追加
 
 ```java
 return List.of("set", "update", "delete", "rename", "description",
                "items", "language", "newsubcmd", "help").stream()...
 ```
+
+### 2′. `command/SubcommandHandlers.java`
+
+#### ① ハンドラメソッドを追加
+
+```java
+void handleNewSubCmd(Player player, UUID playerId, /* 引数 */) {
+    // 処理
+}
+```
+
+#### ② `sendUsage()` / `sendHelp()` にコマンドを追記
+
+`Messages.helpXxx()` にエントリを追加し、`sendHelp()` 内の呼び出し行へ追記します。
 
 ### 3. `i18n/Messages.java`
 
@@ -256,10 +265,12 @@ public static boolean isOurMenu(String t) {
 }
 ```
 
-### 3. `gui/MenuManager.java` / `gui/ItemFactory.java`
+### 3. `gui/MenuRenderer.java` / `gui/ItemFactory.java` / `gui/PlayerItemFactory.java`
 
-メニューを開くメソッドとアイテム生成ロジックを追加します。  
-`MenuManager` 内の他のメニュー (`openSortMenu` など) を参考にしてください。
+メニューを開くメソッドは `MenuRenderer` に追加し、必要な `ItemStack` は `ItemFactory`（CP 関連）または `PlayerItemFactory`（プレイヤー関連）に追加します。  
+`MenuRenderer` 内の他のメニュー (`openSortMenu` など) を参考にしてください。
+
+あわせて `gui/MenuClickHandler.java` にクリック処理、`gui/ChatInputHandler.java` にチャット入力処理を追加し、`gui/MenuManager.java` に委譲メソッド（1行）を追加します。
 
 ### 4. `listener/InventoryClickListener.java`
 
