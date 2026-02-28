@@ -6,10 +6,13 @@ import checkpoint.model.Checkpoint;
 import checkpoint.model.RenameResult;
 import checkpoint.model.SortOrder;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -406,5 +409,128 @@ class CheckpointManagerTest {
     void shouldReturnMaxDistanceForNoData() {
         CheckpointManager manager = new CheckpointManager();
         assertEquals(Double.MAX_VALUE, manager.getNearestCpDistanceSq(UUID.randomUUID(), 0, 0));
+    }
+
+    // -----------------------------------------------------------------------
+    // Persistence support tests
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("loadDataでインポートしたデータが正しく取得できる")
+    void shouldLoadDataCorrectly() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID p1 = UUID.randomUUID();
+        UUID p2 = UUID.randomUUID();
+
+        Instant now = Instant.now();
+        Checkpoint quickCp = new Checkpoint("world", 1, 64, 2, 0, 0, now, now, "");
+        Checkpoint namedCp = new Checkpoint("world", 10, 65, 20, 90f, 0f, now, now, "Home base");
+
+        Map<UUID, Checkpoint> quickMap = Map.of(p1, quickCp);
+        Map<UUID, Map<String, Checkpoint>> namedMap = Map.of(p1, Map.of("Home", namedCp));
+        Map<UUID, String> selected = Map.of(p1, "Home");
+        Map<UUID, Map<UUID, Instant>> clones = Map.of(p2, Map.of(p1, now));
+        Map<UUID, Integer> counts = Map.of(p1, 3);
+
+        manager.loadData(quickMap, namedMap, selected, clones, counts);
+
+        assertEquals(quickCp, manager.getQuickCheckpoint(p1).orElse(null));
+        assertEquals(namedCp, manager.getNamedCheckpoint(p1, "Home").orElse(null));
+        assertEquals("Home", manager.getSelectedNamedCheckpointName(p1).orElse(null));
+        assertTrue(manager.getCloneTime(p2, p1).isPresent());
+        assertEquals(3, manager.getClonedCount(p1));
+    }
+
+    @Test
+    @DisplayName("getAllQuickCheckpointsがスナップショットを返す")
+    void shouldReturnQuickCheckpointSnapshot() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID playerId = UUID.randomUUID();
+        Checkpoint cp = new Checkpoint("world", 0, 64, 0, 0, 0);
+        manager.setQuickCheckpoint(playerId, cp);
+
+        Map<UUID, Checkpoint> snapshot = manager.getAllQuickCheckpoints();
+        assertEquals(1, snapshot.size());
+        assertEquals(cp, snapshot.get(playerId));
+    }
+
+    @Test
+    @DisplayName("getAllNamedCheckpointsが深いコピーを返す")
+    void shouldReturnNamedCheckpointDeepCopy() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID playerId = UUID.randomUUID();
+        Checkpoint cp = new Checkpoint("world", 0, 64, 0, 0, 0);
+        manager.addNamedCheckpoint(playerId, "Base", cp);
+
+        Map<UUID, Map<String, Checkpoint>> snapshot = manager.getAllNamedCheckpoints();
+        assertEquals(1, snapshot.size());
+        assertEquals(cp, snapshot.get(playerId).get("Base"));
+    }
+
+    @Test
+    @DisplayName("loadDataは既存データを上書きする")
+    void shouldOverwriteExistingDataOnLoad() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID p = UUID.randomUUID();
+        manager.addNamedCheckpoint(p, "Old", new Checkpoint("world", 0, 64, 0, 0, 0));
+
+        Checkpoint newCp = new Checkpoint("world", 100, 70, 100, 0, 0);
+        manager.loadData(
+            Map.of(),
+            Map.of(p, Map.of("New", newCp)),
+            Map.of(),
+            Map.of(),
+            Map.of()
+        );
+
+        assertTrue(manager.getNamedCheckpoint(p, "Old").isEmpty(), "旧データは消えるはず");
+        assertEquals(newCp, manager.getNamedCheckpoint(p, "New").orElse(null));
+    }
+
+    @Test
+    @DisplayName("onDataChangedコールバックが変更時に呼ばれる")
+    void shouldInvokeOnDataChangedCallback() {
+        CheckpointManager manager = new CheckpointManager();
+        AtomicInteger callCount = new AtomicInteger(0);
+        manager.setOnDataChanged(callCount::incrementAndGet);
+
+        UUID p = UUID.randomUUID();
+        manager.setQuickCheckpoint(p, new Checkpoint("world", 0, 64, 0, 0, 0));
+        manager.addNamedCheckpoint(p, "A", new Checkpoint("world", 1, 64, 1, 0, 0));
+        manager.selectNamedCheckpoint(p, "A");
+        manager.renameNamedCheckpoint(p, "A", "B");
+        manager.setNamedCheckpointDescription(p, "B", "desc");
+        manager.removeNamedCheckpoint(p, "B");
+        manager.clearQuickCheckpoint(p);
+
+        assertEquals(7, callCount.get(), "全ての変更操作でコールバックが呼ばれるはず");
+    }
+
+    @Test
+    @DisplayName("loadDataはonDataChangedを発火しない")
+    void shouldNotFireCallbackOnLoad() {
+        CheckpointManager manager = new CheckpointManager();
+        AtomicInteger callCount = new AtomicInteger(0);
+        manager.setOnDataChanged(callCount::incrementAndGet);
+
+        manager.loadData(Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
+
+        assertEquals(0, callCount.get(), "loadDataではコールバックは呼ばれないはず");
+    }
+
+    @Test
+    @DisplayName("getAllPlayerUuidsが全プレイヤーUUIDを返す")
+    void shouldReturnAllPlayerUuids() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID p1 = UUID.randomUUID();
+        UUID p2 = UUID.randomUUID();
+        UUID p3 = UUID.randomUUID();
+        manager.setQuickCheckpoint(p1, new Checkpoint("world", 0, 64, 0, 0, 0));
+        manager.addNamedCheckpoint(p2, "A", new Checkpoint("world", 0, 64, 0, 0, 0));
+
+        Set<UUID> all = manager.getAllPlayerUuids();
+        assertTrue(all.contains(p1));
+        assertTrue(all.contains(p2));
+        assertFalse(all.contains(p3));
     }
 }

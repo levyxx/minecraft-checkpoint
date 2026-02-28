@@ -7,6 +7,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -25,6 +27,96 @@ public class CheckpointManager {
     private final Map<UUID, String> selectedNamedCheckpoints = new ConcurrentHashMap<>();
     private final Map<UUID, Map<UUID, Instant>> cloneHistory = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> clonedCounts = new ConcurrentHashMap<>();
+    private Runnable onDataChanged;
+
+    // -----------------------------------------------------------------------
+    // Persistence support
+    // -----------------------------------------------------------------------
+
+    /** Register a callback that is invoked whenever persistent data changes. */
+    public void setOnDataChanged(Runnable callback) {
+        this.onDataChanged = callback;
+    }
+
+    private void notifyDataChanged() {
+        if (onDataChanged != null) onDataChanged.run();
+    }
+
+    /** Returns an unmodifiable snapshot of all quick checkpoints. */
+    public Map<UUID, Checkpoint> getAllQuickCheckpoints() {
+        return Map.copyOf(quickCheckpoints);
+    }
+
+    /** Returns a deep-copy snapshot of all named checkpoints. */
+    public Map<UUID, Map<String, Checkpoint>> getAllNamedCheckpoints() {
+        Map<UUID, Map<String, Checkpoint>> copy = new HashMap<>();
+        for (var entry : namedCheckpoints.entrySet()) {
+            copy.put(entry.getKey(), Map.copyOf(entry.getValue()));
+        }
+        return Map.copyOf(copy);
+    }
+
+    /** Returns an unmodifiable snapshot of all selected checkpoint names. */
+    public Map<UUID, String> getAllSelectedCheckpoints() {
+        return Map.copyOf(selectedNamedCheckpoints);
+    }
+
+    /** Returns a deep-copy snapshot of all clone history. */
+    public Map<UUID, Map<UUID, Instant>> getAllCloneHistory() {
+        Map<UUID, Map<UUID, Instant>> copy = new HashMap<>();
+        for (var entry : cloneHistory.entrySet()) {
+            copy.put(entry.getKey(), Map.copyOf(entry.getValue()));
+        }
+        return Map.copyOf(copy);
+    }
+
+    /** Returns an unmodifiable snapshot of all cloned counts. */
+    public Map<UUID, Integer> getAllClonedCounts() {
+        return Map.copyOf(clonedCounts);
+    }
+
+    /**
+     * Bulk-load persisted data into this manager, replacing any existing data.
+     * Does NOT trigger the onDataChanged callback.
+     */
+    public void loadData(
+            Map<UUID, Checkpoint> quickCps,
+            Map<UUID, Map<String, Checkpoint>> namedCps,
+            Map<UUID, String> selected,
+            Map<UUID, Map<UUID, Instant>> clones,
+            Map<UUID, Integer> counts) {
+        quickCheckpoints.clear();
+        if (quickCps != null) quickCheckpoints.putAll(quickCps);
+
+        namedCheckpoints.clear();
+        if (namedCps != null) {
+            for (var entry : namedCps.entrySet()) {
+                namedCheckpoints.put(entry.getKey(), new ConcurrentHashMap<>(entry.getValue()));
+            }
+        }
+
+        selectedNamedCheckpoints.clear();
+        if (selected != null) selectedNamedCheckpoints.putAll(selected);
+
+        cloneHistory.clear();
+        if (clones != null) {
+            for (var entry : clones.entrySet()) {
+                cloneHistory.put(entry.getKey(), new ConcurrentHashMap<>(entry.getValue()));
+            }
+        }
+
+        clonedCounts.clear();
+        if (counts != null) clonedCounts.putAll(counts);
+    }
+
+    /** Returns all player UUIDs that have any data (quick, named, or clone). */
+    public Set<UUID> getAllPlayerUuids() {
+        Set<UUID> all = new HashSet<>();
+        all.addAll(quickCheckpoints.keySet());
+        all.addAll(namedCheckpoints.keySet());
+        all.addAll(selectedNamedCheckpoints.keySet());
+        return Set.copyOf(all);
+    }
 
     // -----------------------------------------------------------------------
     // Sort / Search
@@ -99,6 +191,7 @@ public class CheckpointManager {
         UUID validatedId = Objects.requireNonNull(playerId, "playerId cannot be null");
         Checkpoint validatedCheckpoint = Objects.requireNonNull(checkpoint, "checkpoint cannot be null");
         quickCheckpoints.put(validatedId, validatedCheckpoint);
+        notifyDataChanged();
     }
 
     public Optional<Checkpoint> getQuickCheckpoint(UUID playerId) {
@@ -111,6 +204,7 @@ public class CheckpointManager {
     public void clearQuickCheckpoint(UUID playerId) {
         if (playerId != null) {
             quickCheckpoints.remove(playerId);
+            notifyDataChanged();
         }
     }
 
@@ -130,6 +224,7 @@ public class CheckpointManager {
         }
 
         playerMap.put(name, validatedCheckpoint);
+        notifyDataChanged();
         return true;
     }
 
@@ -152,6 +247,7 @@ public class CheckpointManager {
         Checkpoint existing = playerMap.get(actualKey.get());
         Checkpoint updated = validatedCheckpoint.withTimestamps(existing.createdAt(), Instant.now());
         playerMap.put(actualKey.get(), updated);
+        notifyDataChanged();
         return true;
     }
 
@@ -176,6 +272,7 @@ public class CheckpointManager {
         }
 
         selectedNamedCheckpoints.computeIfPresent(playerId, (id, selected) -> selected.equalsIgnoreCase(name) ? null : selected);
+        notifyDataChanged();
         return true;
     }
 
@@ -226,6 +323,7 @@ public class CheckpointManager {
         }
 
         selectedNamedCheckpoints.put(playerId, actualKey.get());
+        notifyDataChanged();
         return true;
     }
 
@@ -257,6 +355,7 @@ public class CheckpointManager {
     public void clearSelectedNamedCheckpoint(UUID playerId) {
         if (playerId != null) {
             selectedNamedCheckpoints.remove(playerId);
+            notifyDataChanged();
         }
     }
 
@@ -273,6 +372,7 @@ public class CheckpointManager {
         if (actualKey.isEmpty()) return false;
         Checkpoint existing = playerMap.get(actualKey.get());
         playerMap.put(actualKey.get(), existing.withDescription(description));
+        notifyDataChanged();
         return true;
     }
 
@@ -308,6 +408,7 @@ public class CheckpointManager {
         selectedNamedCheckpoints.computeIfPresent(validatedId,
             (id, selected) -> selected.equalsIgnoreCase(oldName) ? newName : selected);
 
+        notifyDataChanged();
         return RenameResult.SUCCESS;
     }
 
@@ -321,6 +422,7 @@ public class CheckpointManager {
         cloneHistory.computeIfAbsent(clonerId, k -> new ConcurrentHashMap<>())
             .put(sourcePlayerId, Instant.now());
         clonedCounts.merge(sourcePlayerId, 1, Integer::sum);
+        notifyDataChanged();
     }
 
     public Optional<Instant> getCloneTime(UUID clonerId, UUID sourcePlayerId) {

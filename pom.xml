@@ -6,7 +6,7 @@
 
     <groupId>io.github.levyxx</groupId>
     <artifactId>minecraft-checkpoint</artifactId>
-    <version>1.7.4</version>
+    <version>2.0.0</version>
     <packaging>jar</packaging>
 
     <name>minecraft-checkpoint</name>
