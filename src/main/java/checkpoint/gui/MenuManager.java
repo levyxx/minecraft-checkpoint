@@ -3,6 +3,7 @@ package checkpoint.gui;
 import checkpoint.i18n.Messages;
 import checkpoint.manager.CheckpointManager;
 import checkpoint.model.Checkpoint;
+import checkpoint.model.ClearSortOrder;
 import checkpoint.model.PlayerSortOrder;
 import checkpoint.model.RenameResult;
 import checkpoint.model.SortOrder;
@@ -62,6 +63,8 @@ public class MenuManager {
     private final Map<UUID, PlayerSortOrder> playerSelectSortOrders = new ConcurrentHashMap<>();
     private final Map<UUID, String>         playerSelectSearchQuery = new ConcurrentHashMap<>();
     private final Set<UUID>                 awaitingPlayerSearchInput = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, Boolean>        displayWoolMode      = new ConcurrentHashMap<>();
+    private final Map<UUID, ClearSortOrder> clearSortOrders      = new ConcurrentHashMap<>();
 
     // ---- Dependencies -----------------------------------------------------
     private final JavaPlugin          plugin;
@@ -92,6 +95,8 @@ public class MenuManager {
         playerSelectSortOrders.clear();
         playerSelectSearchQuery.clear();
         awaitingPlayerSearchInput.clear();
+        displayWoolMode.clear();
+        clearSortOrders.clear();
     }
 
     public boolean isOurMenu(String title) {
@@ -237,8 +242,9 @@ public class MenuManager {
         double px = viewer.getLocation().getX();
         double pz = viewer.getLocation().getZ();
 
-        List<String> names = checkpointManager.getSortedFilteredCheckpointNames(
-            targetId, order, query, px, pz);
+        ClearSortOrder csOrder = clearSortOrders.getOrDefault(viewerId, ClearSortOrder.NONE);
+        List<String> names = getSortedFilteredCheckpointNamesWithClearSort(
+            targetId, order, query, px, pz, csOrder);
 
         int totalPages = Math.max(1, (int) Math.ceil(Math.max(1, names.size()) / (double) ITEMS_PER_PAGE));
         int page = Math.max(0, Math.min(requestedPage, totalPages - 1));
@@ -262,6 +268,11 @@ public class MenuManager {
         // Player head at top-row middle
         inventory.setItem(SLOT_PLAYER_HEAD, ItemFactory.createPlayerHeadItem(viewerId, Bukkit.getOfflinePlayer(targetId), isSelf));
 
+        // Display mode toggle (slot 2) and Clear sort button (slot 6)
+        boolean woolMode = displayWoolMode.getOrDefault(viewerId, false);
+        inventory.setItem(SLOT_DISPLAY_MODE, ItemFactory.createDisplayModeToggle(viewerId, woolMode));
+        inventory.setItem(SLOT_CLEAR_SORT, ItemFactory.createClearSortButton(viewerId, csOrder));
+
         // CP items in inner area (rows 1-4, cols 1-7)
         Optional<String> selectedName = isSelf
             ? checkpointManager.getSelectedNamedCheckpointName(viewerId)
@@ -277,7 +288,14 @@ public class MenuManager {
                     Optional<Checkpoint> checkpoint = checkpointManager.getNamedCheckpoint(targetId, name);
                     if (checkpoint.isPresent()) {
                         boolean selected = selectedName.map(s -> s.equalsIgnoreCase(name)).orElse(false);
-                        inventory.setItem(slot, ItemFactory.createCheckpointPaper(viewerId, name, checkpoint.get(), selected, isSelf));
+                        boolean cleared = checkpointManager.isCleared(targetId, name);
+                        if (woolMode) {
+                            inventory.setItem(slot, ItemFactory.createCheckpointWool(
+                                viewerId, name, checkpoint.get(), selected, isSelf, cleared));
+                        } else {
+                            inventory.setItem(slot, ItemFactory.createCheckpointPaper(
+                                viewerId, name, checkpoint.get(), selected, isSelf, cleared));
+                        }
                     }
                 }
                 itemIndex++;
@@ -437,6 +455,23 @@ public class MenuManager {
         player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
     }
 
+    public void openClearSortMenu(Player player) {
+        UUID viewerId = player.getUniqueId();
+        Inventory inv = Bukkit.createInventory(player, 27,
+            ChatColor.DARK_AQUA + Messages.clearSortTitle(viewerId));
+        ClearSortOrder current = clearSortOrders.getOrDefault(viewerId, ClearSortOrder.NONE);
+
+        for (int s = 0; s < 9; s++) inv.setItem(s, ItemFactory.createGlassDeco(Material.CYAN_STAINED_GLASS_PANE));
+        for (int s = 18; s < 27; s++) inv.setItem(s, ItemFactory.createGlassDeco(Material.CYAN_STAINED_GLASS_PANE));
+        for (int s = 9; s < 18; s++) inv.setItem(s, ItemFactory.createGlassDeco(Material.LIGHT_BLUE_STAINED_GLASS_PANE));
+
+        inv.setItem(12, ItemFactory.createClearSortOption(viewerId, ClearSortOrder.CLEARED_FIRST, current == ClearSortOrder.CLEARED_FIRST));
+        inv.setItem(14, ItemFactory.createClearSortOption(viewerId, ClearSortOrder.UNCLEARED_FIRST, current == ClearSortOrder.UNCLEARED_FIRST));
+
+        player.openInventory(inv);
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
+    }
+
     public void openCpOperationMenu(Player viewer, String cpName, UUID targetId) {
         UUID viewerId = viewer.getUniqueId();
         boolean isSelf = targetId.equals(viewerId);
@@ -505,6 +540,20 @@ public class MenuManager {
                 return;
             }
         }
+    }
+
+    public void handleClearSortMenuClick(Player player, int rawSlot) {
+        UUID viewerId = player.getUniqueId();
+        if (rawSlot == 12) {
+            clearSortOrders.put(viewerId, ClearSortOrder.CLEARED_FIRST);
+        } else if (rawSlot == 14) {
+            clearSortOrders.put(viewerId, ClearSortOrder.UNCLEARED_FIRST);
+        } else {
+            return;
+        }
+        menuPages.put(viewerId, 0);
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
+        openCheckpointMenu(player, 0);
     }
 
     public void handlePlayerSelectMenuClick(Player player, InventoryClickEvent event) {
@@ -597,8 +646,9 @@ public class MenuManager {
         String query = playerSearchQuery.get(playerId);
         double px = player.getLocation().getX();
         double pz = player.getLocation().getZ();
-        List<String> names = checkpointManager.getSortedFilteredCheckpointNames(
-            targetId, order, query, px, pz);
+        ClearSortOrder csOrder = clearSortOrders.getOrDefault(playerId, ClearSortOrder.NONE);
+        List<String> names = getSortedFilteredCheckpointNamesWithClearSort(
+            targetId, order, query, px, pz, csOrder);
         int page = menuPages.getOrDefault(playerId, 0);
         int totalPages = Math.max(1, (int) Math.ceil(Math.max(1, names.size()) / (double) ITEMS_PER_PAGE));
 
@@ -608,10 +658,36 @@ public class MenuManager {
             return;
         }
 
+        // Display mode toggle (slot 2)
+        if (rawSlot == SLOT_DISPLAY_MODE) {
+            boolean current = displayWoolMode.getOrDefault(playerId, false);
+            displayWoolMode.put(playerId, !current);
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
+            openCheckpointMenu(player, page);
+            return;
+        }
+
+        // Clear sort button (slot 6): left-click opens menu, right-click clears
+        if (rawSlot == SLOT_CLEAR_SORT) {
+            if (event.isRightClick()) {
+                clearSortOrders.remove(playerId);
+                menuPages.put(playerId, 0);
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
+                openCheckpointMenu(player, 0);
+            } else {
+                openClearSortMenu(player);
+            }
+            return;
+        }
+
         // CP item click (rows 1-4, cols 1-7)
         int row = rawSlot / 9;
         int col = rawSlot % 9;
         if (row >= 1 && row <= 4 && col >= 1 && col <= 7) {
+            ItemStack clicked = event.getCurrentItem();
+            if (clicked == null) return;
+            Material mat = clicked.getType();
+            if (mat != Material.PAPER && mat != Material.LIME_WOOL && mat != Material.RED_WOOL) return;
             int itemIndex = (row - 1) * 7 + (col - 1);
             int dataIndex = page * ITEMS_PER_PAGE + itemIndex;
             if (dataIndex >= names.size()) return;
@@ -934,6 +1010,43 @@ public class MenuManager {
                 playerSelectSearchQuery.remove(playerId);
             }
         }, 1L);
+    }
+
+    // -----------------------------------------------------------------------
+    // Clear-sort helper
+    // -----------------------------------------------------------------------
+
+    /**
+     * Returns sorted + filtered CP names, optionally grouped by clear status.
+     * When clearSortOrder is NONE, delegates directly to CheckpointManager.
+     * Otherwise splits into cleared/uncleared groups, sorts each by the regular
+     * SortOrder, then concatenates (cleared-first or uncleared-first).
+     */
+    private List<String> getSortedFilteredCheckpointNamesWithClearSort(
+            UUID targetId, SortOrder order, String query,
+            double px, double pz, ClearSortOrder csOrder) {
+        List<String> base = checkpointManager.getSortedFilteredCheckpointNames(
+            targetId, order, query, px, pz);
+        if (csOrder == ClearSortOrder.NONE) return base;
+
+        List<String> clearedList = new ArrayList<>();
+        List<String> unclearedList = new ArrayList<>();
+        for (String name : base) {
+            if (checkpointManager.isCleared(targetId, name)) {
+                clearedList.add(name);
+            } else {
+                unclearedList.add(name);
+            }
+        }
+        List<String> result = new ArrayList<>(base.size());
+        if (csOrder == ClearSortOrder.CLEARED_FIRST) {
+            result.addAll(clearedList);
+            result.addAll(unclearedList);
+        } else {
+            result.addAll(unclearedList);
+            result.addAll(clearedList);
+        }
+        return result;
     }
 
     // -----------------------------------------------------------------------

@@ -27,6 +27,9 @@ public class InventoryClickListener implements Listener {
         if (GuiConstants.isSortTitle(title)) {
             event.setCancelled(true);
             menuManager.handleSortMenuClick(player, event.getRawSlot());
+        } else if (GuiConstants.isClearSortTitle(title)) {
+            event.setCancelled(true);
+            menuManager.handleClearSortMenuClick(player, event.getRawSlot());
         } else if (GuiConstants.isPlayerSelectTitle(title)) {
             event.setCancelled(true);
             menuManager.handlePlayerSelectMenuClick(player, event);

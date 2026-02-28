@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.bukkit.ChatColor;
@@ -118,6 +119,8 @@ public class CheckpointCommand implements TabExecutor {
                 }
                 handleDescription(player, playerId, name, desc);
             }
+            case "did" -> handleDid(player, playerId);
+            case "didnt" -> handleDidnt(player, playerId);
             case "items" -> plugin.giveCheckpointItems(player);
             case "language", "lang" -> {
                 if (args.length < 2) {
@@ -278,6 +281,32 @@ public class CheckpointCommand implements TabExecutor {
         }
     }
 
+    private void handleDid(Player player, UUID playerId) {
+        Optional<String> selected = checkpointManager.getSelectedNamedCheckpointName(playerId);
+        if (selected.isEmpty()) {
+            player.sendMessage(ChatColor.RED + Messages.cmdDidNeedNamed(playerId));
+            return;
+        }
+        String name = selected.get();
+        checkpointManager.markCleared(playerId, name);
+        player.sendMessage(ChatColor.GREEN + Messages.cmdDidSuccess(playerId, name));
+    }
+
+    private void handleDidnt(Player player, UUID playerId) {
+        Optional<String> selected = checkpointManager.getSelectedNamedCheckpointName(playerId);
+        if (selected.isEmpty()) {
+            player.sendMessage(ChatColor.RED + Messages.cmdDidNeedNamed(playerId));
+            return;
+        }
+        String name = selected.get();
+        boolean removed = checkpointManager.unmarkCleared(playerId, name);
+        if (removed) {
+            player.sendMessage(ChatColor.GREEN + Messages.cmdDidntSuccess(playerId, name));
+        } else {
+            player.sendMessage(ChatColor.YELLOW + Messages.cmdDidntNotCleared(playerId, name));
+        }
+    }
+
     private void handleLanguage(Player player, UUID playerId, String langArg) {
         String lower = langArg.toLowerCase(Locale.ROOT);
         if ("ja".equals(lower)) {
@@ -306,6 +335,8 @@ public class CheckpointCommand implements TabExecutor {
         player.sendMessage(Messages.helpRename(playerId, l));
         player.sendMessage(Messages.helpDescription(playerId, l));
         player.sendMessage(Messages.helpItems(playerId, l));
+        player.sendMessage(Messages.helpDid(playerId, l));
+        player.sendMessage(Messages.helpDidnt(playerId, l));
         player.sendMessage(Messages.helpLanguage(playerId, l));
         player.sendMessage(Messages.helpHelp(playerId, l));
         player.sendMessage(ChatColor.DARK_AQUA + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -318,7 +349,7 @@ public class CheckpointCommand implements TabExecutor {
         }
 
         if (args.length == 1) {
-            return List.of("set", "update", "delete", "rename", "description", "items", "language", "help").stream()
+            return List.of("set", "update", "delete", "rename", "description", "items", "did", "didnt", "language", "help").stream()
                 .filter(opt -> opt.startsWith(args[0].toLowerCase(Locale.ROOT)))
                 .collect(Collectors.toList());
         }
