@@ -1029,11 +1029,29 @@ public class MenuManager {
             return;
         }
         boolean success = player.teleport(destination, PlayerTeleportEvent.TeleportCause.PLUGIN);
-        if (!success) {
+        if (success) {
+            stabilizePlayer(player);
+        } else {
             Bukkit.getScheduler().runTaskLater(plugin,
                 () -> attemptTeleport(player, destination, attemptsRemaining - 1),
                 TELEPORT_RETRY_DELAY_TICKS);
         }
+    }
+
+    /**
+     * Immediately resets the player's velocity and fall distance after teleport,
+     * and schedules a follow-up reset 1 tick later to ensure the server has
+     * fully processed the teleport before the player can accumulate momentum.
+     */
+    private void stabilizePlayer(Player player) {
+        player.setVelocity(new Vector(0, 0, 0));
+        player.setFallDistance(0f);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (player.isOnline()) {
+                player.setVelocity(new Vector(0, 0, 0));
+                player.setFallDistance(0f);
+            }
+        }, 1L);
     }
 
     private void markLastSelection(UUID playerId, SelectionType type, String identifier) {

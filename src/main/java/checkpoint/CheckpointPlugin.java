@@ -8,6 +8,7 @@ import checkpoint.listener.ChatInputListener;
 import checkpoint.listener.InventoryClickListener;
 import checkpoint.listener.PlayerListener;
 import checkpoint.manager.CheckpointManager;
+import checkpoint.storage.CheckpointStorage;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
@@ -36,12 +37,22 @@ public class CheckpointPlugin extends JavaPlugin {
     private MenuManager menuManager;
     private NamespacedKey cpItemKey;
     private File languagesFile;
+    private File checkpointsFile;
 
     @Override
     public void onEnable() {
         this.checkpointManager = new CheckpointManager();
         this.cpItemKey = new NamespacedKey(this, "cp_utility_item");
         this.menuManager = new MenuManager(this, checkpointManager);
+
+        // Load persisted checkpoint data
+        this.checkpointsFile = new File(getDataFolder(), "checkpoints.yml");
+        CheckpointStorage.load(checkpointsFile, checkpointManager, getLogger());
+
+        // Auto-save on every data change
+        checkpointManager.setOnDataChanged(() ->
+            CheckpointStorage.save(checkpointsFile, checkpointManager, getLogger())
+        );
 
         Bukkit.getPluginManager().registerEvents(new InventoryClickListener(menuManager), this);
         Bukkit.getPluginManager().registerEvents(new ChatInputListener(menuManager), this);
@@ -64,6 +75,10 @@ public class CheckpointPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        // Final save before shutdown
+        if (checkpointManager != null && checkpointsFile != null) {
+            CheckpointStorage.save(checkpointsFile, checkpointManager, getLogger());
+        }
         menuManager.clearAll();
         Messages.clearAll();
         this.checkpointManager = null;
