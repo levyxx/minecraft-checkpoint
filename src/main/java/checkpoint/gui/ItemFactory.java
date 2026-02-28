@@ -43,10 +43,10 @@ public final class ItemFactory {
             meta.setDisplayName(ChatColor.GOLD + name);
             List<String> lore = new ArrayList<>();
             lore.add(ChatColor.GRAY + Messages.cpWorld(viewerId) + checkpoint.worldName());
-            lore.add(ChatColor.GRAY + String.format(Locale.ROOT,
-                "X: %.1f Y: %.1f Z: %.1f", checkpoint.x(), checkpoint.y(), checkpoint.z()));
-            lore.add(ChatColor.GRAY + String.format(Locale.ROOT,
-                "Yaw: %.1f Pitch: %.1f", checkpoint.yaw(), checkpoint.pitch()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "X: %.5f", checkpoint.x()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "Y: %.5f", checkpoint.y()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "Z: %.5f", checkpoint.z()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "F: %.5f", checkpoint.yaw()));
             lore.add(ChatColor.GRAY + Messages.cpCreated(viewerId) + formatInstant(checkpoint.createdAt()));
             lore.add(ChatColor.GRAY + Messages.cpUpdated(viewerId) + formatInstant(checkpoint.updatedAt()));
             if (!checkpoint.description().isEmpty()) {
@@ -81,12 +81,10 @@ public final class ItemFactory {
             meta.setDisplayName(ChatColor.GOLD + name);
             List<String> lore = new ArrayList<>();
             lore.add(ChatColor.GRAY + Messages.cpWorld(viewerId) + checkpoint.worldName());
-            lore.add(ChatColor.GRAY + String.format(Locale.ROOT,
-                "X: %.1f Y: %.1f Z: %.1f",
-                checkpoint.x(), checkpoint.y(), checkpoint.z()));
-            lore.add(ChatColor.GRAY + String.format(Locale.ROOT,
-                "Yaw: %.1f Pitch: %.1f",
-                checkpoint.yaw(), checkpoint.pitch()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "X: %.5f", checkpoint.x()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "Y: %.5f", checkpoint.y()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "Z: %.5f", checkpoint.z()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "F: %.5f", checkpoint.yaw()));
             lore.add(ChatColor.GRAY + Messages.cpCreated(viewerId) + formatInstant(checkpoint.createdAt()));
             lore.add(ChatColor.GRAY + Messages.cpUpdated(viewerId) + formatInstant(checkpoint.updatedAt()));
             if (!checkpoint.description().isEmpty()) {
@@ -415,10 +413,10 @@ public final class ItemFactory {
             meta.setDisplayName(ChatColor.GOLD + name);
             List<String> lore = new ArrayList<>();
             lore.add(ChatColor.GRAY + Messages.cpWorld(viewerId) + checkpoint.worldName());
-            lore.add(ChatColor.GRAY + String.format(Locale.ROOT,
-                "X: %.1f Y: %.1f Z: %.1f", checkpoint.x(), checkpoint.y(), checkpoint.z()));
-            lore.add(ChatColor.GRAY + String.format(Locale.ROOT,
-                "Yaw: %.1f Pitch: %.1f", checkpoint.yaw(), checkpoint.pitch()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "X: %.5f", checkpoint.x()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "Y: %.5f", checkpoint.y()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "Z: %.5f", checkpoint.z()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "F: %.5f", checkpoint.yaw()));
             lore.add(ChatColor.GRAY + Messages.cpCreated(viewerId) + formatInstant(checkpoint.createdAt()));
             lore.add(ChatColor.GRAY + Messages.cpUpdated(viewerId) + formatInstant(checkpoint.updatedAt()));
             if (!checkpoint.description().isEmpty()) {
