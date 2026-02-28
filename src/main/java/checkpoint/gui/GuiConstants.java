@@ -17,6 +17,8 @@ public final class GuiConstants {
     public static final int SLOT_SORT      = 51;
     public static final int SLOT_NEXT      = 53;
     public static final int SLOT_PLAYER_HEAD = 4;
+    public static final int SLOT_DISPLAY_MODE = 2;  // top row, col 2
+    public static final int SLOT_CLEAR_SORT  = 6;   // top row, col 6
 
     // Title sets for matching (both JP and EN)
     private static final Set<String> GUI_TITLES = Set.of(
@@ -34,16 +36,20 @@ public final class GuiConstants {
     private static final Set<String> PLAYER_SORT_TITLES = Set.of(
         ChatColor.DARK_AQUA + "プレイヤーのソート方法を選択",
         ChatColor.DARK_AQUA + "Select Player Sort Order");
+    private static final Set<String> CLEAR_SORT_TITLES = Set.of(
+        ChatColor.DARK_AQUA + "クリアソート",
+        ChatColor.DARK_AQUA + "Clear Sort");
 
     public static boolean isGuiTitle(String title)            { return GUI_TITLES.contains(title); }
     public static boolean isSortTitle(String title)           { return SORT_TITLES.contains(title); }
     public static boolean isPlayerSelectTitle(String title)   { return PLAYER_SELECT_TITLES.contains(title); }
     public static boolean isCpOperationTitle(String title)    { return CP_OPERATION_TITLES.contains(title); }
     public static boolean isPlayerSortTitle(String title)     { return PLAYER_SORT_TITLES.contains(title); }
+    public static boolean isClearSortTitle(String title)      { return CLEAR_SORT_TITLES.contains(title); }
 
     public static boolean isOurMenu(String title) {
         return isGuiTitle(title) || isSortTitle(title) || isPlayerSelectTitle(title)
-            || isCpOperationTitle(title) || isPlayerSortTitle(title);
+            || isCpOperationTitle(title) || isPlayerSortTitle(title) || isClearSortTitle(title);
     }
 
     public static final DateTimeFormatter CP_DATE_FMT =

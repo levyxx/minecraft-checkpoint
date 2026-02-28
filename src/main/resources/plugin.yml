@@ -14,5 +14,7 @@ commands:
       /cp rename <old-name> -n <new-name>
       /cp description <name> -d <description>
       /cp items
+      /cp did
+      /cp didnt
       /cp language <ja|en>
       /cp help

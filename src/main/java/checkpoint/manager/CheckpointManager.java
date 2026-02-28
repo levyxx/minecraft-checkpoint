@@ -27,6 +27,7 @@ public class CheckpointManager {
     private final Map<UUID, String> selectedNamedCheckpoints = new ConcurrentHashMap<>();
     private final Map<UUID, Map<UUID, Instant>> cloneHistory = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> clonedCounts = new ConcurrentHashMap<>();
+    private final Map<UUID, Set<String>> clearedCheckpoints = new ConcurrentHashMap<>();
     private Runnable onDataChanged;
 
     // -----------------------------------------------------------------------
@@ -75,6 +76,15 @@ public class CheckpointManager {
         return Map.copyOf(clonedCounts);
     }
 
+    /** Returns a deep-copy snapshot of all cleared checkpoint sets. */
+    public Map<UUID, Set<String>> getAllClearedCheckpoints() {
+        Map<UUID, Set<String>> copy = new HashMap<>();
+        for (var entry : clearedCheckpoints.entrySet()) {
+            copy.put(entry.getKey(), Set.copyOf(entry.getValue()));
+        }
+        return Map.copyOf(copy);
+    }
+
     /**
      * Bulk-load persisted data into this manager, replacing any existing data.
      * Does NOT trigger the onDataChanged callback.
@@ -84,7 +94,8 @@ public class CheckpointManager {
             Map<UUID, Map<String, Checkpoint>> namedCps,
             Map<UUID, String> selected,
             Map<UUID, Map<UUID, Instant>> clones,
-            Map<UUID, Integer> counts) {
+            Map<UUID, Integer> counts,
+            Map<UUID, Set<String>> cleared) {
         quickCheckpoints.clear();
         if (quickCps != null) quickCheckpoints.putAll(quickCps);
 
@@ -107,6 +118,14 @@ public class CheckpointManager {
 
         clonedCounts.clear();
         if (counts != null) clonedCounts.putAll(counts);
+
+        clearedCheckpoints.clear();
+        if (cleared != null) {
+            for (var entry : cleared.entrySet()) {
+                clearedCheckpoints.put(entry.getKey(), ConcurrentHashMap.newKeySet());
+                clearedCheckpoints.get(entry.getKey()).addAll(entry.getValue());
+            }
+        }
     }
 
     /** Returns all player UUIDs that have any data (quick, named, or clone). */
@@ -272,6 +291,12 @@ public class CheckpointManager {
         }
 
         selectedNamedCheckpoints.computeIfPresent(playerId, (id, selected) -> selected.equalsIgnoreCase(name) ? null : selected);
+        // Remove from cleared set
+        Set<String> cleared = clearedCheckpoints.get(playerId);
+        if (cleared != null) {
+            cleared.removeIf(n -> n.equalsIgnoreCase(name));
+            if (cleared.isEmpty()) clearedCheckpoints.remove(playerId);
+        }
         notifyDataChanged();
         return true;
     }
@@ -408,8 +433,56 @@ public class CheckpointManager {
         selectedNamedCheckpoints.computeIfPresent(validatedId,
             (id, selected) -> selected.equalsIgnoreCase(oldName) ? newName : selected);
 
+        // Transfer cleared status to new name
+        Set<String> cleared = clearedCheckpoints.get(validatedId);
+        if (cleared != null && cleared.removeIf(n -> n.equalsIgnoreCase(oldName))) {
+            cleared.add(newName);
+        }
+
         notifyDataChanged();
         return RenameResult.SUCCESS;
+    }
+
+    // -----------------------------------------------------------------------
+    // Cleared checkpoint tracking
+    // -----------------------------------------------------------------------
+
+    /** Mark a named checkpoint as cleared. Returns false if the CP doesn't exist. */
+    public boolean markCleared(UUID playerId, String rawName) {
+        if (playerId == null) return false;
+        Map<String, Checkpoint> playerMap = namedCheckpoints.get(playerId);
+        if (playerMap == null) return false;
+        String name = validateName(rawName);
+        Optional<String> actualKey = findExistingKey(playerMap, name);
+        if (actualKey.isEmpty()) return false;
+        clearedCheckpoints.computeIfAbsent(playerId, k -> ConcurrentHashMap.newKeySet())
+            .add(actualKey.get());
+        notifyDataChanged();
+        return true;
+    }
+
+    /** Unmark a named checkpoint as cleared. Returns false if the CP doesn't exist or wasn't cleared. */
+    public boolean unmarkCleared(UUID playerId, String rawName) {
+        if (playerId == null) return false;
+        Map<String, Checkpoint> playerMap = namedCheckpoints.get(playerId);
+        if (playerMap == null) return false;
+        String name = validateName(rawName);
+        Optional<String> actualKey = findExistingKey(playerMap, name);
+        if (actualKey.isEmpty()) return false;
+        Set<String> cleared = clearedCheckpoints.get(playerId);
+        if (cleared == null) return false;
+        boolean removed = cleared.removeIf(n -> n.equalsIgnoreCase(actualKey.get()));
+        if (cleared.isEmpty()) clearedCheckpoints.remove(playerId);
+        if (removed) notifyDataChanged();
+        return removed;
+    }
+
+    /** Check if a named checkpoint is cleared. */
+    public boolean isCleared(UUID playerId, String rawName) {
+        if (playerId == null || rawName == null) return false;
+        Set<String> cleared = clearedCheckpoints.get(playerId);
+        if (cleared == null) return false;
+        return cleared.stream().anyMatch(n -> n.equalsIgnoreCase(rawName.trim()));
     }
 
     // -----------------------------------------------------------------------

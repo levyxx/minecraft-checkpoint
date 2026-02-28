@@ -2,6 +2,7 @@ package checkpoint.gui;
 
 import checkpoint.i18n.Messages;
 import checkpoint.model.Checkpoint;
+import checkpoint.model.ClearSortOrder;
 import checkpoint.model.PlayerSortOrder;
 import checkpoint.model.SortOrder;
 import java.time.ZoneId;
@@ -35,23 +36,27 @@ public final class ItemFactory {
     // -----------------------------------------------------------------------
 
     public static ItemStack createCheckpointPaper(UUID viewerId, String name, Checkpoint checkpoint,
-                                                  boolean selected, boolean isSelf) {
+                                                  boolean selected, boolean isSelf, boolean cleared) {
         ItemStack paper = new ItemStack(Material.PAPER);
         ItemMeta meta = paper.getItemMeta();
         if (meta != null) {
             meta.setDisplayName(ChatColor.GOLD + name);
             List<String> lore = new ArrayList<>();
             lore.add(ChatColor.GRAY + Messages.cpWorld(viewerId) + checkpoint.worldName());
-            lore.add(ChatColor.GRAY + String.format(Locale.ROOT,
-                "X: %.1f Y: %.1f Z: %.1f", checkpoint.x(), checkpoint.y(), checkpoint.z()));
-            lore.add(ChatColor.GRAY + String.format(Locale.ROOT,
-                "Yaw: %.1f Pitch: %.1f", checkpoint.yaw(), checkpoint.pitch()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "X: %.5f", checkpoint.x()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "Y: %.5f", checkpoint.y()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "Z: %.5f", checkpoint.z()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "F: %.5f", checkpoint.yaw()));
             lore.add(ChatColor.GRAY + Messages.cpCreated(viewerId) + formatInstant(checkpoint.createdAt()));
             lore.add(ChatColor.GRAY + Messages.cpUpdated(viewerId) + formatInstant(checkpoint.updatedAt()));
             if (!checkpoint.description().isEmpty()) {
                 lore.add("");
                 lore.add(ChatColor.WHITE + checkpoint.description());
             }
+            lore.add("");
+            lore.add(cleared
+                ? ChatColor.GREEN + Messages.clearStatusCleared(viewerId)
+                : ChatColor.RED + Messages.clearStatusNotCleared(viewerId));
             lore.add("");
             if (isSelf) {
                 lore.add(selected ? ChatColor.AQUA + Messages.cpCurrentSelection(viewerId)
@@ -76,12 +81,10 @@ public final class ItemFactory {
             meta.setDisplayName(ChatColor.GOLD + name);
             List<String> lore = new ArrayList<>();
             lore.add(ChatColor.GRAY + Messages.cpWorld(viewerId) + checkpoint.worldName());
-            lore.add(ChatColor.GRAY + String.format(Locale.ROOT,
-                "X: %.1f Y: %.1f Z: %.1f",
-                checkpoint.x(), checkpoint.y(), checkpoint.z()));
-            lore.add(ChatColor.GRAY + String.format(Locale.ROOT,
-                "Yaw: %.1f Pitch: %.1f",
-                checkpoint.yaw(), checkpoint.pitch()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "X: %.5f", checkpoint.x()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "Y: %.5f", checkpoint.y()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "Z: %.5f", checkpoint.z()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "F: %.5f", checkpoint.yaw()));
             lore.add(ChatColor.GRAY + Messages.cpCreated(viewerId) + formatInstant(checkpoint.createdAt()));
             lore.add(ChatColor.GRAY + Messages.cpUpdated(viewerId) + formatInstant(checkpoint.updatedAt()));
             if (!checkpoint.description().isEmpty()) {
@@ -352,6 +355,113 @@ public final class ItemFactory {
                 ChatColor.GRAY + Messages.sortCurrent(viewerId) + ChatColor.YELLOW + Messages.playerSortOrderLabel(viewerId, current),
                 ChatColor.YELLOW + Messages.sortOpenSelect(viewerId)
             ));
+            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    // -----------------------------------------------------------------------
+    // Display mode toggle & clear sort items
+    // -----------------------------------------------------------------------
+
+    /** Creates the display mode toggle button (snowball or magma cream). */
+    public static ItemStack createDisplayModeToggle(UUID viewerId, boolean woolMode) {
+        Material mat = woolMode ? Material.MAGMA_CREAM : Material.SNOWBALL;
+        ItemStack item = new ItemStack(mat);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(ChatColor.LIGHT_PURPLE + (woolMode
+                ? Messages.displayModeWool(viewerId)
+                : Messages.displayModePaper(viewerId)));
+            meta.setLore(List.of(
+                ChatColor.YELLOW + (woolMode
+                    ? Messages.displayModeClickToPaper(viewerId)
+                    : Messages.displayModeClickToWool(viewerId))
+            ));
+            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    /** Creates the clear sort button (blaze powder). */
+    public static ItemStack createClearSortButton(UUID viewerId, ClearSortOrder current) {
+        ItemStack item = new ItemStack(Material.BLAZE_POWDER);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(ChatColor.GOLD + Messages.clearSortButton(viewerId));
+            meta.setLore(List.of(
+                ChatColor.GRAY + Messages.clearSortCurrent(viewerId)
+                    + ChatColor.YELLOW + Messages.clearSortOrderLabel(viewerId, current),
+                ChatColor.YELLOW + Messages.clearSortLeftClick(viewerId),
+                ChatColor.GRAY + Messages.clearSortRightClick(viewerId)
+            ));
+            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    /** Creates a CP item displayed as wool (lime=cleared, red=not cleared). */
+    public static ItemStack createCheckpointWool(UUID viewerId, String name, Checkpoint checkpoint,
+                                                  boolean selected, boolean isSelf, boolean cleared) {
+        Material wool = cleared ? Material.LIME_WOOL : Material.RED_WOOL;
+        ItemStack item = new ItemStack(wool);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(ChatColor.GOLD + name);
+            List<String> lore = new ArrayList<>();
+            lore.add(ChatColor.GRAY + Messages.cpWorld(viewerId) + checkpoint.worldName());
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "X: %.5f", checkpoint.x()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "Y: %.5f", checkpoint.y()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "Z: %.5f", checkpoint.z()));
+            lore.add(ChatColor.GRAY + String.format(Locale.ROOT, "F: %.5f", checkpoint.yaw()));
+            lore.add(ChatColor.GRAY + Messages.cpCreated(viewerId) + formatInstant(checkpoint.createdAt()));
+            lore.add(ChatColor.GRAY + Messages.cpUpdated(viewerId) + formatInstant(checkpoint.updatedAt()));
+            if (!checkpoint.description().isEmpty()) {
+                lore.add("");
+                lore.add(ChatColor.WHITE + checkpoint.description());
+            }
+            lore.add("");
+            lore.add(cleared
+                ? ChatColor.GREEN + Messages.clearStatusCleared(viewerId)
+                : ChatColor.RED + Messages.clearStatusNotCleared(viewerId));
+            lore.add("");
+            if (isSelf) {
+                lore.add(selected ? ChatColor.AQUA + Messages.cpCurrentSelection(viewerId)
+                    : ChatColor.YELLOW + Messages.cpLeftSelectRight(viewerId));
+            } else {
+                lore.add(ChatColor.YELLOW + Messages.cpLeftTpRight(viewerId));
+            }
+            meta.setLore(lore);
+            if (selected) {
+                meta.addEnchant(Enchantment.LUCK, 1, true);
+                meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+            }
+            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    /** Creates a clear sort option item (lime or red wool) for the clear sort selection menu. */
+    public static ItemStack createClearSortOption(UUID viewerId, ClearSortOrder order, boolean active) {
+        Material wool = (order == ClearSortOrder.CLEARED_FIRST) ? Material.LIME_WOOL : Material.RED_WOOL;
+        ItemStack item = new ItemStack(wool);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            String label = Messages.clearSortOrderLabel(viewerId, order);
+            meta.setDisplayName((active ? ChatColor.AQUA : ChatColor.WHITE) + label);
+            List<String> lore = new ArrayList<>();
+            if (active) {
+                lore.add(ChatColor.GREEN + Messages.sortCurrentMark(viewerId));
+                meta.addEnchant(Enchantment.LUCK, 1, true);
+                meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+            } else {
+                lore.add(ChatColor.YELLOW + Messages.sortLeftClick(viewerId));
+            }
+            meta.setLore(lore);
             meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
             item.setItemMeta(meta);
         }

@@ -357,4 +357,48 @@ public final class Messages {
             case LAST_ACTIVITY_ASC  -> pSortActivityAsc(id);
         };
     }
+
+    // -----------------------------------------------------------------------
+    // Cleared checkpoint messages
+    // -----------------------------------------------------------------------
+
+    // /cp did, /cp didnt commands
+    public static String cmdDidSuccess(UUID id, String n) { return get(id, "チェックポイント『" + n + "』をクリア済みにしました。", "Checkpoint '" + n + "' marked as cleared."); }
+    public static String cmdDidntSuccess(UUID id, String n) { return get(id, "チェックポイント『" + n + "』のクリア判定を解除しました。", "Cleared status removed from '" + n + "'."); }
+    public static String cmdDidntNotCleared(UUID id, String n) { return get(id, "チェックポイント『" + n + "』はクリア済みではありません。", "Checkpoint '" + n + "' was not cleared."); }
+    public static String cmdDidNeedNamed(UUID id) { return get(id,
+        "保存済みのCPを選択した状態でコマンドを実行してください。", "Please select a saved CP before executing this command."); }
+
+    // Help
+    public static String helpDid(UUID id, String l) { return get(id,
+        HC + "/" + l + " did" + HD + "  選択中のCPをクリア済みにする",
+        HC + "/" + l + " did" + HD + "  Mark selected CP as cleared"); }
+    public static String helpDidnt(UUID id, String l) { return get(id,
+        HC + "/" + l + " didnt" + HD + "  選択中のCPのクリア判定を解除する",
+        HC + "/" + l + " didnt" + HD + "  Unmark selected CP's cleared status"); }
+
+    // GUI
+    public static String clearSortTitle(UUID id) { return get(id, "クリアソート", "Clear Sort"); }
+    public static String clearStatusCleared(UUID id) { return get(id, "✔ クリア済み", "✔ Cleared"); }
+    public static String clearStatusNotCleared(UUID id) { return get(id, "✘ 未クリア", "✘ Not Cleared"); }
+    public static String displayModePaper(UUID id) { return get(id, "表示モード: 紙", "Display: Paper"); }
+    public static String displayModeWool(UUID id) { return get(id, "表示モード: クリア状況", "Display: Clear Status"); }
+    public static String displayModeClickToWool(UUID id) { return get(id, "クリックでクリア状況表示に切替", "Click to switch to clear status view"); }
+    public static String displayModeClickToPaper(UUID id) { return get(id, "クリックで紙表示に切替", "Click to switch to paper view"); }
+    public static String clearSortButton(UUID id) { return get(id, "クリアソート", "Clear Sort"); }
+    public static String clearSortNone(UUID id) { return get(id, "なし", "None"); }
+    public static String clearSortClearedFirst(UUID id) { return get(id, "クリア済みを先に表示", "Cleared first"); }
+    public static String clearSortUnclearedFirst(UUID id) { return get(id, "未クリアを先に表示", "Uncleared first"); }
+    public static String clearSortLeftClick(UUID id) { return get(id, "左クリックでソート選択", "Left-click to select sort"); }
+    public static String clearSortRightClick(UUID id) { return get(id, "右クリックでソート解除", "Right-click to clear sort"); }
+    public static String clearSortCurrent(UUID id) { return get(id, "現在: ", "Current: "); }
+
+    /** Get localized label for a ClearSortOrder. */
+    public static String clearSortOrderLabel(UUID id, checkpoint.model.ClearSortOrder order) {
+        return switch (order) {
+            case NONE             -> clearSortNone(id);
+            case CLEARED_FIRST    -> clearSortClearedFirst(id);
+            case UNCLEARED_FIRST  -> clearSortUnclearedFirst(id);
+        };
+    }
 }

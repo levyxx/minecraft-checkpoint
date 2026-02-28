@@ -7,9 +7,11 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Logger;
 import org.bukkit.configuration.ConfigurationSection;
@@ -53,6 +55,7 @@ public final class CheckpointStorage {
         Map<UUID, String> selected = manager.getAllSelectedCheckpoints();
         Map<UUID, Map<UUID, Instant>> clones = manager.getAllCloneHistory();
         Map<UUID, Integer> counts = manager.getAllClonedCounts();
+        Map<UUID, Set<String>> cleared = manager.getAllClearedCheckpoints();
 
         // --- Quick checkpoints ---
         for (var entry : quickCps.entrySet()) {
@@ -94,6 +97,11 @@ public final class CheckpointStorage {
             config.set("clonedCounts." + entry.getKey().toString(), entry.getValue());
         }
 
+        // --- Cleared checkpoints ---
+        for (var entry : cleared.entrySet()) {
+            config.set("cleared." + entry.getKey().toString(), new ArrayList<>(entry.getValue()));
+        }
+
         // Write to disk
         try {
             File parent = file.getParentFile();
@@ -127,6 +135,7 @@ public final class CheckpointStorage {
         Map<UUID, String> selected = new HashMap<>();
         Map<UUID, Map<UUID, Instant>> clones = new HashMap<>();
         Map<UUID, Integer> counts = new HashMap<>();
+        Map<UUID, Set<String>> cleared = new HashMap<>();
 
         // --- Quick checkpoints ---
         ConfigurationSection quickSection = config.getConfigurationSection("quick");
@@ -234,14 +243,36 @@ public final class CheckpointStorage {
             }
         }
 
-        manager.loadData(quickCps, namedCps, selected, clones, counts);
+        // --- Cleared checkpoints ---
+        ConfigurationSection clearedSection = config.getConfigurationSection("cleared");
+        if (clearedSection != null) {
+            for (String uuidStr : clearedSection.getKeys(false)) {
+                try {
+                    UUID playerId = UUID.fromString(uuidStr);
+                    List<?> list = clearedSection.getList(uuidStr);
+                    if (list != null) {
+                        Set<String> names = new HashSet<>();
+                        for (Object item : list) {
+                            if (item != null) names.add(String.valueOf(item));
+                        }
+                        if (!names.isEmpty()) cleared.put(playerId, names);
+                    }
+                } catch (IllegalArgumentException e) {
+                    logger.warning("Skipping invalid cleared UUID: " + uuidStr);
+                }
+            }
+        }
+
+        manager.loadData(quickCps, namedCps, selected, clones, counts, cleared);
 
         int totalNamed = namedCps.values().stream().mapToInt(Map::size).sum();
+        int totalCleared = cleared.values().stream().mapToInt(Set::size).sum();
         logger.info("Loaded checkpoint data: " + quickCps.size() + " quick, "
                 + totalNamed + " named, "
                 + selected.size() + " selected, "
                 + clones.size() + " clone histories, "
-                + counts.size() + " cloned counts.");
+                + counts.size() + " cloned counts, "
+                + totalCleared + " cleared.");
     }
 
     // -----------------------------------------------------------------------

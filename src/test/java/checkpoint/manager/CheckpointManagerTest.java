@@ -432,7 +432,7 @@ class CheckpointManagerTest {
         Map<UUID, Map<UUID, Instant>> clones = Map.of(p2, Map.of(p1, now));
         Map<UUID, Integer> counts = Map.of(p1, 3);
 
-        manager.loadData(quickMap, namedMap, selected, clones, counts);
+        manager.loadData(quickMap, namedMap, selected, clones, counts, Map.of());
 
         assertEquals(quickCp, manager.getQuickCheckpoint(p1).orElse(null));
         assertEquals(namedCp, manager.getNamedCheckpoint(p1, "Home").orElse(null));
@@ -480,6 +480,7 @@ class CheckpointManagerTest {
             Map.of(p, Map.of("New", newCp)),
             Map.of(),
             Map.of(),
+            Map.of(),
             Map.of()
         );
 
@@ -513,7 +514,7 @@ class CheckpointManagerTest {
         AtomicInteger callCount = new AtomicInteger(0);
         manager.setOnDataChanged(callCount::incrementAndGet);
 
-        manager.loadData(Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
+        manager.loadData(Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
 
         assertEquals(0, callCount.get(), "loadDataではコールバックは呼ばれないはず");
     }
@@ -532,5 +533,117 @@ class CheckpointManagerTest {
         assertTrue(all.contains(p1));
         assertTrue(all.contains(p2));
         assertFalse(all.contains(p3));
+    }
+
+    // -----------------------------------------------------------------------
+    // Cleared checkpoint tests
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("markClearedでCPをクリア済みにできる")
+    void shouldMarkClearedCheckpoint() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID p = UUID.randomUUID();
+        manager.addNamedCheckpoint(p, "Alpha", new Checkpoint("world", 0, 64, 0, 0, 0));
+
+        assertTrue(manager.markCleared(p, "Alpha"));
+        assertTrue(manager.isCleared(p, "Alpha"));
+        assertTrue(manager.isCleared(p, "alpha"), "大文字小文字を区別しないはず");
+    }
+
+    @Test
+    @DisplayName("unmarkClearedでクリア判定を解除できる")
+    void shouldUnmarkClearedCheckpoint() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID p = UUID.randomUUID();
+        manager.addNamedCheckpoint(p, "Beta", new Checkpoint("world", 0, 64, 0, 0, 0));
+        manager.markCleared(p, "Beta");
+
+        assertTrue(manager.unmarkCleared(p, "Beta"));
+        assertFalse(manager.isCleared(p, "Beta"));
+    }
+
+    @Test
+    @DisplayName("クリア済みでないCPのunmarkClearedはfalseを返す")
+    void shouldReturnFalseWhenUnmarkingNonCleared() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID p = UUID.randomUUID();
+        manager.addNamedCheckpoint(p, "Gamma", new Checkpoint("world", 0, 64, 0, 0, 0));
+
+        assertFalse(manager.unmarkCleared(p, "Gamma"));
+    }
+
+    @Test
+    @DisplayName("存在しないCPにmarkClearedするとfalseを返す")
+    void shouldReturnFalseWhenMarkingNonExistentCp() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID p = UUID.randomUUID();
+
+        assertFalse(manager.markCleared(p, "NoSuchCp"));
+        assertFalse(manager.isCleared(p, "NoSuchCp"));
+    }
+
+    @Test
+    @DisplayName("CP削除時にクリア判定も削除される")
+    void shouldRemoveClearedOnDelete() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID p = UUID.randomUUID();
+        manager.addNamedCheckpoint(p, "Del", new Checkpoint("world", 0, 64, 0, 0, 0));
+        manager.markCleared(p, "Del");
+
+        manager.removeNamedCheckpoint(p, "Del");
+        assertFalse(manager.isCleared(p, "Del"));
+    }
+
+    @Test
+    @DisplayName("CPリネーム時にクリア判定も移行する")
+    void shouldTransferClearedOnRename() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID p = UUID.randomUUID();
+        manager.addNamedCheckpoint(p, "OldName", new Checkpoint("world", 0, 64, 0, 0, 0));
+        manager.markCleared(p, "OldName");
+
+        RenameResult result = manager.renameNamedCheckpoint(p, "OldName", "NewName");
+        assertEquals(RenameResult.SUCCESS, result);
+        assertFalse(manager.isCleared(p, "OldName"));
+        assertTrue(manager.isCleared(p, "NewName"));
+    }
+
+    @Test
+    @DisplayName("loadDataでクリア済みデータをインポートできる")
+    void shouldLoadClearedData() {
+        CheckpointManager manager = new CheckpointManager();
+        UUID p = UUID.randomUUID();
+        Checkpoint cp = new Checkpoint("world", 0, 64, 0, 0, 0);
+
+        manager.loadData(
+            Map.of(),
+            Map.of(p, Map.of("A", cp, "B", cp)),
+            Map.of(),
+            Map.of(),
+            Map.of(),
+            Map.of(p, Set.of("A"))
+        );
+
+        assertTrue(manager.isCleared(p, "A"));
+        assertFalse(manager.isCleared(p, "B"));
+    }
+
+    @Test
+    @DisplayName("markCleared/unmarkClearedがonDataChangedを発火する")
+    void shouldFireCallbackOnClearedChange() {
+        CheckpointManager manager = new CheckpointManager();
+        AtomicInteger callCount = new AtomicInteger(0);
+        manager.setOnDataChanged(callCount::incrementAndGet);
+
+        UUID p = UUID.randomUUID();
+        manager.addNamedCheckpoint(p, "X", new Checkpoint("world", 0, 64, 0, 0, 0));
+        int before = callCount.get();
+
+        manager.markCleared(p, "X");
+        assertEquals(before + 1, callCount.get(), "markClearedでコールバックが呼ばれるはず");
+
+        manager.unmarkCleared(p, "X");
+        assertEquals(before + 2, callCount.get(), "unmarkClearedでコールバックが呼ばれるはず");
     }
 }
