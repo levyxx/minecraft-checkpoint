@@ -1,0 +1,19 @@
+name: CheckpointPlugin
+version: ${project.version}
+main: checkpoint.CheckpointPlugin
+author: levyxx
+description: Enables per-player checkpoints using slimeballs and nether stars. (1.8.x)
+commands:
+  cp:
+    description: Manage personal named checkpoints.
+    usage: |-
+      /cp set <name> [-d description]
+      /cp update <name>
+      /cp delete <name>
+      /cp rename <old-name> -n <new-name>
+      /cp description <name> -d <description>
+      /cp items
+      /cp did
+      /cp didnt
+      /cp language <ja|en>
+      /cp help

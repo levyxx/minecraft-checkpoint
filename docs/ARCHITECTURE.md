@@ -2,6 +2,43 @@
 
 ---
 
+## マルチバージョン対応
+
+Maven マルチモジュール構成により、Minecraft 1.8.x / 1.12.x / 1.21.x の3バージョンに対応しています。
+
+```
+pom.xml (parent)
+├── common/          共通コード（VersionCompat 経由でバージョン差を吸収）
+├── plugin-1.8/      1.8 用エントリポイント + Compat1_8
+├── plugin-1.12/     1.12 用エントリポイント + Compat1_12
+└── plugin-1.21/     1.21 用エントリポイント + Compat1_21
+```
+
+### VersionCompat パターン
+
+バージョン間で異なる Bukkit API を抽象化する `VersionCompat` クラスを common モジュールに配置し、
+各バージョンモジュールが具象実装を提供します。
+
+```
+VersionCompat (abstract, common)
+├── CompatLegacy (abstract, common)  ← pre-1.13 共通処理
+│   ├── Compat1_8 (plugin-1.8)      ← 1.8 固有：旧Sound名, リフレクション
+│   └── Compat1_12 (plugin-1.12)    ← 1.12 固有：新Sound名, EquipmentSlot
+└── Compat1_21 (plugin-1.21)        ← 1.21 固有：新Material名, PersistentDataContainer
+```
+
+**抽象化される差異：**
+- 色付きブロック・ウール・ガラス・インクサック（データ値 vs Flattened Material）
+- サウンド名（1.8: `CLICK` → 1.9+: `UI_BUTTON_CLICK`）
+- アイテムタグ付け（1.8/1.12: ロア隠しマーカー → 1.21: PersistentDataContainer）
+- プレイヤーヘッド（SKULL_ITEM:3 vs PLAYER_HEAD）
+- スカルオーナー設定（setOwner vs setOwningPlayer）
+- プレイヤーロケール取得（リフレクション vs getLocale()）
+- 装備スロット判定（常にメインハンド vs EquipmentSlot.HAND）
+- テレポート前処理（isGliding / wakeup の有無）
+
+---
+
 ## レイヤー構成
 
 ```
@@ -39,7 +76,8 @@
              横断的関心事
 ┌────────────────────────────────────────────────┐
 │  i18n/Messages  (全レイヤーから参照)             │
-│  CheckpointPlugin  (DI・ライフサイクル管理)      │
+│  CheckpointPluginBase  (DI・ライフサイクル管理)  │
+│  VersionCompat  (バージョン差分吸収)             │
 └────────────────────────────────────────────────┘
 ```
 
@@ -128,7 +166,7 @@ Bukkit イベントを受け取り、適切なハンドラへ委譲します。G
 ```
 PlayerJoinEvent
   └─ PlayerListener.onPlayerJoin()
-       └─ Messages.setLang(uuid, Messages.detectLang(player.getLocale()))
+       └─ Messages.setLang(uuid, Messages.detectLang(VersionCompat.get().getPlayerLocale(player)))
             └─ locale が "ja" で始まる → Lang.JP
                それ以外               → Lang.EN
 
@@ -141,10 +179,11 @@ PlayerQuitEvent
        └─ Messages.removeLang(uuid)  ← メモリ解放
 ```
 
-### `CheckpointPlugin`（エントリポイント）
+### `CheckpointPluginBase`（エントリポイント）
 
 `onEnable` でオブジェクトグラフを構築し（簡易 DI）、リスナー・コマンドを登録します。  
-`onDisable` で `MenuManager.clearAll()` と `Messages.clearAll()` を呼びます。
+`onDisable` で `MenuManager.clearAll()` と `Messages.clearAll()` を呼びます。  
+各バージョンモジュールの `CheckpointPlugin` はこのクラスを継承し、`onEnable()` で `VersionCompat.init()` を呼んでから `super.onEnable()` を実行します。
 
 ---
 
@@ -167,8 +206,8 @@ GuiConstants.GUI_TITLES = Set.of(
 
 ## データ永続化について
 
-現在のバージョンはデータを**メモリ上のみ**に保持します（サーバー再起動でリセット）。  
-将来的に永続化を追加する場合は `CheckpointManager` に `save()` / `load()` メソッドを追加し、`CheckpointPlugin.onEnable` / `onDisable` で呼び出す設計が適切です（他レイヤーへの影響を最小化できます）。
+現在のバージョンはデータを `plugins/minecraft-checkpoint/checkpoints.yml` に自動保存します（データ変更時）。  
+`CheckpointManager` の `setOnDataChanged()` コールバック経由で `CheckpointStorage.save()` が呼び出されます。
 
 ---
 
@@ -177,4 +216,4 @@ GuiConstants.GUI_TITLES = Set.of(
 `CheckpointManager` は Bukkit 非依存のため、JUnit 5 + MockBukkit なしでテストできます。  
 GUI・リスナー・コマンドレイヤーは Bukkit の実行環境に依存するため、現時点では手動テスト（サーバー上での動作確認）を主体としています。
 
-テストファイル：`src/test/java/checkpoint/manager/CheckpointManagerTest.java`（43 件）
+テストファイル：`common/src/test/java/checkpoint/manager/CheckpointManagerTest.java`（43 件）
