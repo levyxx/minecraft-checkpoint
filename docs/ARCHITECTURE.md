@@ -4,14 +4,15 @@
 
 ## マルチバージョン対応
 
-Maven マルチモジュール構成により、Minecraft 1.8.x / 1.12.x / 1.21.x の3バージョンに対応しています。
+Maven マルチモジュール構成により、Minecraft 1.8.x / 1.12.x / 1.21.x / 26.2 の4バージョンに対応しています。
 
 ```
 pom.xml (parent)
 ├── common/          共通コード（VersionCompat 経由でバージョン差を吸収）
 ├── plugin-1.8/      1.8 用エントリポイント + Compat1_8
 ├── plugin-1.12/     1.12 用エントリポイント + Compat1_12
-└── plugin-1.21/     1.21 用エントリポイント + Compat1_21
+├── plugin-1.21/     1.21 用エントリポイント + Compat1_21
+└── plugin-26.2/     26.2 用エントリポイント + Compat26_2
 ```
 
 ### VersionCompat パターン
@@ -24,13 +25,15 @@ VersionCompat (abstract, common)
 ├── CompatLegacy (abstract, common)  ← pre-1.13 共通処理
 │   ├── Compat1_8 (plugin-1.8)      ← 1.8 固有：旧Sound名, リフレクション
 │   └── Compat1_12 (plugin-1.12)    ← 1.12 固有：新Sound名, EquipmentSlot
-└── Compat1_21 (plugin-1.21)        ← 1.21 固有：新Material名, PersistentDataContainer
+├── Compat1_21 (plugin-1.21)        ← 1.21 固有：新Material名, PersistentDataContainer
+└── Compat26_2 (plugin-26.2)        ← 26.2 固有：新Enchantment名, PersistentDataContainer
 ```
 
 **抽象化される差異：**
 - 色付きブロック・ウール・ガラス・インクサック（データ値 vs Flattened Material）
 - サウンド名（1.8: `CLICK` → 1.9+: `UI_BUTTON_CLICK`）
-- アイテムタグ付け（1.8/1.12: ロア隠しマーカー → 1.21: PersistentDataContainer）
+- アイテムタグ付け（1.8/1.12: ロア隠しマーカー → 1.21/26.2: PersistentDataContainer）
+- エンチャント名（1.21: `LUCK` → 26.2: `LUCK_OF_THE_SEA`）
 - プレイヤーヘッド（SKULL_ITEM:3 vs PLAYER_HEAD）
 - スカルオーナー設定（setOwner vs setOwningPlayer）
 - プレイヤーロケール取得（リフレクション vs getLocale()）
@@ -149,7 +152,7 @@ Bukkit イベントを受け取り、適切なハンドラへ委譲します。G
 
 | クラス | 役割 |
 |-------|------|
-| `PlayerListener` | アイテム右クリック / 左クリック処理、アイテムドロップ防止、インベントリクローズ後のクリーンアップ、参加時言語検出、退出時の言語データ削除 |
+| `PlayerListener` | ユーティリティアイテムの右クリック処理、アイテムドロップ防止、インベントリクローズ後のクリーンアップ、参加時言語検出、退出時の言語データ削除 |
 | `InventoryClickListener` | GUI クリックイベントのルーティング（タイトルで GUI 種別を判定して `MenuManager` に委譲） |
 | `ChatInputListener` | チャット入力待ち状態（検索・リネーム・説明変更）のプレイヤーからの入力を受け取り `MenuManager` に委譲 |
 

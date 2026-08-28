@@ -9,8 +9,8 @@
 | 項目 | 内容 |
 |------|------|
 | 名前 | minecraft-checkpoint |
-| 種別 | Spigot プラグイン（Minecraft 1.8.x / 1.12.x / 1.21.x） |
-| 言語 | Java 17 |
+| 種別 | Spigot プラグイン（Minecraft 1.8.x / 1.12.x / 1.21.x / 26.2） |
+| 言語 | Java 17（Minecraft 26.2 サーバーの実行は Java 25） |
 | ビルド | Maven マルチモジュール (`mvn package`) |
 | テスト | JUnit 5 (`mvn test`) |
 | メインクラス | `checkpoint.CheckpointPlugin`（各バージョンモジュール） |
@@ -78,6 +78,12 @@ plugin-1.21/
     CheckpointPlugin.java            # 1.21 用エントリポイント
     compat/Compat1_21.java           # 1.21 用互換実装（PersistentDataContainer 使用）
   src/main/resources/plugin.yml      # 1.21 用プラグイン設定（api-version: '1.20'）
+plugin-26.2/
+  pom.xml                            # 26.2 モジュール POM（Spigot API 26.2）
+  src/main/java/checkpoint/
+    CheckpointPlugin.java            # 26.2 用エントリポイント
+    compat/Compat26_2.java           # 26.2 用互換実装（PersistentDataContainer 使用）
+  src/main/resources/plugin.yml      # 26.2 用プラグイン設定（api-version: '26.2'）
 docs/
   README.dev.md                      # 開発者向けガイド（ビルド・構成・拡張手順）
   ARCHITECTURE.md                    # アーキテクチャ・設計方針
@@ -91,11 +97,11 @@ docs/
 
 ## バージョン変更時に修正する箇所
 
-バージョンは **親 `pom.xml` の1か所のみ** を変更します。各 `plugin.yml` の `version` フィールドは Maven の `${project.version}` を参照しているため自動で反映されます。
+バージョンは **親 `pom.xml` の `<revision>` 1か所のみ** を変更します。各モジュールの親バージョンは `${revision}`、各 `plugin.yml` の `version` フィールドは `${project.version}` を参照しているため自動で反映されます。
 
 ```xml
-<!-- pom.xml 9 行目付近 -->
-<version>2.1.2</version>  ← ここを変更
+<!-- pom.xml の properties -->
+<revision>3.0.0</revision>  ← ここを変更
 ```
 
 ### バージョニング方針（セマンティックバージョニング）
@@ -190,6 +196,7 @@ mvn process-resources
 - `plugin-1.8/target/minecraft-checkpoint-1.8.jar`
 - `plugin-1.12/target/minecraft-checkpoint-1.12.jar`
 - `plugin-1.21/target/minecraft-checkpoint-1.21.jar`
+- `plugin-26.2/target/minecraft-checkpoint-26.2.jar`
 
 ---
 

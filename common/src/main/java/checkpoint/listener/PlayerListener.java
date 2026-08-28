@@ -79,13 +79,6 @@ public class PlayerListener implements Listener {
         Material type = item.getType();
         Player player = event.getPlayer();
 
-        if (type == Material.NETHER_STAR
-            && (action == Action.LEFT_CLICK_AIR || action == Action.LEFT_CLICK_BLOCK)) {
-            event.setCancelled(true);
-            menuManager.openCheckpointMenu(player, menuManager.getMenuPage(player.getUniqueId()));
-            return;
-        }
-
         if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) {
             return;
         }

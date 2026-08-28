@@ -108,8 +108,7 @@ public abstract class CheckpointPluginBase extends JavaPlugin {
 
         ItemStack netherStar = createUtilityItem(
             Material.NETHER_STAR, ChatColor.AQUA, "CheckPoint",
-            Arrays.asList(ChatColor.GRAY + Messages.itemNetherStarLoreL(playerId),
-                    ChatColor.GRAY + Messages.itemNetherStarLoreR(playerId)));
+            Arrays.asList(ChatColor.GRAY + Messages.itemNetherStarLoreR(playerId)));
 
         ItemStack slimeBall = createUtilityItem(
             Material.SLIME_BALL, ChatColor.GREEN, "Set CheckPoint",
