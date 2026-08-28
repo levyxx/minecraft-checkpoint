@@ -146,7 +146,6 @@ public final class Messages {
     public static String itemsReceived(UUID id) { return get(id,
         "チェックポイントアイテムを受け取りました。所持品を確認してください。",
         "Checkpoint items received. Check your inventory."); }
-    public static String itemNetherStarLoreL(UUID id) { return get(id, "左クリック: チェックポイント一覧", "Left-click: Checkpoint list"); }
     public static String itemNetherStarLoreR(UUID id) { return get(id, "右クリック: テレポート", "Right-click: Teleport"); }
     public static String itemSlimeLore(UUID id) { return get(id, "右クリック: 現在地を保存", "Right-click: Save current location"); }
     public static String itemFeatherLore(UUID id) { return get(id, "右クリック: クリエ/アドベンチャー切替", "Right-click: Toggle Creative/Adventure"); }

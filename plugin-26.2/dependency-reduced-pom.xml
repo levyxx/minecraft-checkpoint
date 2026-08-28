@@ -6,8 +6,8 @@
     <version>${revision}</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
-  <artifactId>minecraft-checkpoint-1.8</artifactId>
-  <name>minecraft-checkpoint-1.8</name>
+  <artifactId>minecraft-checkpoint-26.2</artifactId>
+  <name>minecraft-checkpoint-26.2</name>
   <build>
     <resources>
       <resource>
@@ -15,8 +15,14 @@
         <directory>src/main/resources</directory>
       </resource>
     </resources>
-    <finalName>minecraft-checkpoint-1.8</finalName>
+    <finalName>minecraft-checkpoint-26.2</finalName>
     <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <release>17</release>
+        </configuration>
+      </plugin>
       <plugin>
         <artifactId>maven-shade-plugin</artifactId>
         <executions>
@@ -44,8 +50,11 @@
     <dependency>
       <groupId>org.spigotmc</groupId>
       <artifactId>spigot-api</artifactId>
-      <version>1.20.1-R0.1-SNAPSHOT</version>
+      <version>26.2-R0.1-SNAPSHOT</version>
       <scope>provided</scope>
     </dependency>
   </dependencies>
+  <properties>
+    <spigot.api.version>26.2-R0.1-SNAPSHOT</spigot.api.version>
+  </properties>
 </project>

@@ -6,9 +6,9 @@
 
 ## 日本語
 
-Minecraft Java Edition (Spigot/Paper **1.8.x / 1.12.x / 1.21.x**) 用のチェックポイントプラグインです。  
-プレイヤーごとに名前付きチェックポイントを保存・テレポート・管理でき、GUI メニューや自他プレイヤーの CP 閲覧・クローン機能を備えています。  
-**日本語・英語の2言語に対応**しており、マインクラフトの言語設定に応じて自動で切り替わります。  
+Minecraft Java Edition (Spigot/Paper **1.8.x / 1.12.x / 1.21.x / 26.2**) 用のチェックポイント機能プラグインです。
+プレイヤーごとに名前付きチェックポイントを保存・テレポート・管理でき、GUI メニューや他プレイヤーの CP 閲覧・クローン機能を備えています。  
+**日本語・英語の2言語に対応**しており、クライアントのロケールに応じて自動で切り替わります。  
 チェックポイントデータはサーバー再起動後も**永続化**されます。
 
 ### ✨ 機能
@@ -18,7 +18,6 @@ Minecraft Java Edition (Spigot/Paper **1.8.x / 1.12.x / 1.21.x**) 用のチェ�
 |-----------|--------|--------|
 | スライムボール | 右クリック | 現在位置をクイックチェックポイントとして保存 |
 | ネザースター | 右クリック | 最後に設定したチェックポイントへテレポート |
-| ネザースター | 左クリック | チェックポイント一覧 GUI を開く |
 | ダイヤモンド | 右クリック | チェックポイント一覧 GUI を開く |
 | 羽 | 右クリック | アドベンチャー⇔クリエイティブのゲームモード切り替え（スペクテイター時は変化なし） |
 
@@ -68,8 +67,8 @@ Minecraft Java Edition (Spigot/Paper **1.8.x / 1.12.x / 1.21.x**) 用のチェ�
 
 ### ⚙️ 動作要件
 
-- Java 17 以上
-- Spigot / Paper 1.8.x / 1.12.x / 1.21.x 互換サーバー
+- 対象サーバーが要求する Java（Minecraft 26.2 は Java 25）
+- Spigot / Paper 1.8.x / 1.12.x / 1.21.x / 26.2 互換サーバー
 
 ### 📦 インストール
 
@@ -77,6 +76,7 @@ Minecraft Java Edition (Spigot/Paper **1.8.x / 1.12.x / 1.21.x**) 用のチェ�
    - `minecraft-checkpoint-1.8.jar` — Minecraft 1.8.x 用
    - `minecraft-checkpoint-1.12.jar` — Minecraft 1.12.x 用
    - `minecraft-checkpoint-1.21.jar` — Minecraft 1.21.x 用
+   - `minecraft-checkpoint-26.2.jar` — Minecraft 26.2 用
 2. サーバーの `plugins/` ディレクトリに配置
 3. サーバーを再起動
 
@@ -86,17 +86,18 @@ Minecraft Java Edition (Spigot/Paper **1.8.x / 1.12.x / 1.21.x**) 用のチェ�
 
 1. サーバーを起動してプレイヤーとしてログイン
 2. `/cp items` でネザースター・スライムボール・羽・ダイヤモンドを受け取る
-3. `/cp language ja` で日本語表示に切り替え
-4. スライムボールを右クリックしてクイック CP を保存
-5. ネザースターを右クリックで最後の CP へ瞬時にテレポート
-6. ネザースター左クリック or ダイヤモンド右クリックで一覧 GUI を開く
-
+3. スライムボールを右クリックしてクイック CP を保存
+4. ネザースターを右クリックで最後の CP へ瞬時にテレポート
+5. ダイヤモンドを右クリックして一覧 GUI を開く
+6. GUI 上段スロット2のスノーボールをクリックして表示モードを切り替える
+7. CP を攻略したら `/cp did` でクリア済みにマーク
+8. `/cp language en` で英語表示に切り替え
 
 ---
 
 ## English
 
-A checkpoint plugin for Minecraft Java Edition (Spigot/Paper **1.8.x / 1.12.x / 1.21.x**).  
+A checkpoint plugin for Minecraft Java Edition (Spigot/Paper **1.8.x / 1.12.x / 1.21.x / 26.2**).
 Players can save, teleport to, and manage named checkpoints per player, with a chest-based GUI, cross-player checkpoint browsing, and cloning.  
 **Supports Japanese and English** — the language is auto-detected from the player's Minecraft client locale.  
 All checkpoint data is **persisted** across server restarts.
@@ -108,7 +109,6 @@ All checkpoint data is **persisted** across server restarts.
 |------|--------|----------|
 | Slime Ball | Right-click | Save current location as a quick checkpoint |
 | Nether Star | Right-click | Teleport to the last-set checkpoint |
-| Nether Star | Left-click | Open the checkpoint list GUI |
 | Diamond | Right-click | Open the checkpoint list GUI |
 | Feather | Right-click | Toggle Adventure ⇔ Creative game mode (no effect in Spectator) |
 
@@ -158,8 +158,8 @@ All checkpoint data is **persisted** across server restarts.
 
 ### ⚙️ Requirements
 
-- Java 17+
-- Spigot / Paper 1.8.x / 1.12.x / 1.21.x compatible server
+- The Java version required by the target server (Java 25 for Minecraft 26.2)
+- Spigot / Paper 1.8.x / 1.12.x / 1.21.x / 26.2 compatible server
 
 ### 📦 Installation
 
@@ -167,6 +167,7 @@ All checkpoint data is **persisted** across server restarts.
    - `minecraft-checkpoint-1.8.jar` — for Minecraft 1.8.x
    - `minecraft-checkpoint-1.12.jar` — for Minecraft 1.12.x
    - `minecraft-checkpoint-1.21.jar` — for Minecraft 1.21.x
+   - `minecraft-checkpoint-26.2.jar` — for Minecraft 26.2
 2. Place it in the server's `plugins/` directory
 3. Restart the server
 
@@ -176,8 +177,9 @@ All checkpoint data is **persisted** across server restarts.
 
 1. Start the server and join as a player
 2. Run `/cp items` to receive the Nether Star, Slime Ball, Feather, and Diamond
-3. Run `/cp language en` to switch to English
-4. Right-click the Slime Ball to save a quick checkpoint
-5. Right-click the Nether Star to teleport instantly to the last CP
-6. Left-click the Nether Star or right-click the Diamond to open the list GUI
-
+3. Right-click the Slime Ball to save a quick checkpoint
+4. Right-click the Nether Star to teleport instantly to the last CP
+5. Right-click the Diamond to open the list GUI
+6. Click the Snowball in the top row (slot 2) of the GUI to toggle display mode
+7. After clearing a CP, run `/cp did` to mark it as cleared
+8. Run `/cp language ja` to switch to Japanese

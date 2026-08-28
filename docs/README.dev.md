@@ -26,13 +26,13 @@
 |------|------|
 | 名前 | minecraft-checkpoint |
 | 種別 | Spigot プラグイン |
-| 対応バージョン | Minecraft 1.8.x / 1.12.x / 1.21.x |
+| 対応バージョン | Minecraft 1.8.x / 1.12.x / 1.21.x / 26.2 |
 | 言語 | Java 17 |
 | ビルドツール | Maven マルチモジュール |
 | テストフレームワーク | JUnit 5 |
 | メインクラス | `checkpoint.CheckpointPlugin`（各バージョンモジュール） |
 | ベースクラス | `checkpoint.CheckpointPluginBase`（common モジュール） |
-| 現在のバージョン | 親 `pom.xml` の `<version>` を参照 |
+| 現在のバージョン | 親 `pom.xml` の `<revision>` を参照 |
 
 ---
 
@@ -41,6 +41,8 @@
 - Java 17+
 - Maven 3.8+
 - IDE（IntelliJ IDEA / VS Code + Extension Pack for Java 推奨）
+
+ビルドには Java 17 以上を使用できます。Minecraft 26.2 サーバー上での動作確認には Java 25 が必要です。
 
 SpigotAPI の JAR は `pom.xml` で Spigot Maven リポジトリから自動取得されます。  
 サーバー本体は不要です。
@@ -64,6 +66,7 @@ mvn clean package -DskipTests
 - `plugin-1.8/target/minecraft-checkpoint-1.8.jar`
 - `plugin-1.12/target/minecraft-checkpoint-1.12.jar`
 - `plugin-1.21/target/minecraft-checkpoint-1.21.jar`
+- `plugin-26.2/target/minecraft-checkpoint-26.2.jar`
 
 対応するサーバーの `plugins/` に配置して再起動することで動作確認できます。
 
@@ -128,6 +131,12 @@ plugin-1.21/
     CheckpointPlugin.java            # 1.21 用エントリポイント
     compat/Compat1_21.java           # 1.21 用互換実装（PersistentDataContainer）
   src/main/resources/plugin.yml      # api-version: '1.20'
+plugin-26.2/
+  pom.xml                            # Spigot API 26.2-R0.1-SNAPSHOT
+  src/main/java/checkpoint/
+    CheckpointPlugin.java            # 26.2 用エントリポイント
+    compat/Compat26_2.java           # 26.2 用互換実装（PersistentDataContainer）
+  src/main/resources/plugin.yml      # api-version: '26.2'
 docs/
   README.dev.md                      # このファイル
   ARCHITECTURE.md                    # アーキテクチャ詳細・設計方針
@@ -137,12 +146,12 @@ docs/
 
 ## バージョン管理
 
-バージョンは **親 `pom.xml` の1か所のみ** を変更します。  
+バージョンは **親 `pom.xml` の `<revision>` 1か所のみ** を変更します。
 各 `plugin.yml` の `version: ${project.version}` は Maven リソースフィルタリングによってビルド時に自動展開されます。
 
 ```xml
-<!-- pom.xml 9 行目付近 -->
-<version>2.1.2</version>  ← ここのみ変更
+<!-- pom.xml の properties -->
+<revision>3.0.0</revision>  ← ここのみ変更
 ```
 
 変更後は `mvn package` を実行して各 JAR に反映させてください。
